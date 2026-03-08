@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 
-// point to my command  
+// point to my command
 mod cmd;
 
 #[derive(Parser)]
@@ -11,7 +11,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(alias = "ghd")]
+    /// Extract headers from FASTA files
+    #[command(visible_alias = "ghd")]
     Getheaders(cmd::getheaders::GetheadersArgs),
 }
 

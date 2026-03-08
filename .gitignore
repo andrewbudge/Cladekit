@@ -1,4 +1,7 @@
 /target
 
+# dirs to ignore
+/testdata
+
 # Claude stuff
 CLAUDE.md
