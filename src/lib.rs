@@ -24,10 +24,24 @@ pub fn parse_fasta(
         let line = line.trim().to_string();
 
         if line.starts_with('>') {
-            // save previous sequence if we have one
             if !current_header.is_empty() {
-                // TODO: uppercase current_seq and insert into sequences
-                // TODO: validate length if validate_equal is true
+                // Uppercase seq and insert header and seq to hashmap
+                current_seq = current_seq.to_uppercase();
+                sequences.insert(current_header.clone(), current_seq.clone());
+                // Validate seq length (make sure its only passing aligned files in)
+                if validate_equal {
+                    match expected_length {
+                        None => expected_length = Some(current_seq.len()),
+                        Some(len) => {
+                            if current_seq.len() != len {
+                                return Err(format!(
+                                    "Error: Sequence lenght mismatch in {} : {}",
+                                    filename, current_header
+                                ));
+                            }
+                        }
+                    }
+                }
             }
             // start new header
             current_header = line[1..].to_string();
@@ -36,6 +50,33 @@ pub fn parse_fasta(
             current_seq.push_str(&line);
         }
     }
-    // make the complier happy
-    Ok((sequences, 0))
+    if !current_header.is_empty() {
+        current_seq = current_seq.to_uppercase();
+        sequences.insert(current_header, current_seq);
+    }
+
+    let length = sequences.values().next().map_or(0, |s| s.len());
+    Ok((sequences, length))
+}
+
+// Function to read in taxa list
+// Taxa list must be one name per line
+pub fn load_taxa_list(filename: &str) -> Result<Vec<String>, String> {
+    // open file and create reader
+    let file = File::open(filename).map_err(|e| format!("Could not open {}: {}", filename, e))?;
+    let reader = BufReader::new(file);
+
+    // var to store taxa
+    let mut taxa = Vec::new();
+
+    // loop through ever line in the list, trim and turn into string, then add to vector
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Error reading file: {}", e))?;
+        let line = line.trim().to_string();
+        if !line.is_empty() {
+            taxa.push(line);
+        }
+    }
+
+    Ok(taxa)
 }
