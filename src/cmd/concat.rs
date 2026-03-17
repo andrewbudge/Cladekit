@@ -7,12 +7,12 @@ use std::path::Path;
 
 #[derive(Args)]
 pub struct ConcatArgs {
-    /// final taxa alias list (one name per line)
-    #[arg(value_name = "TAXA LIST")]
-    pub taxa_list: String,
-
-    /// FASTA files
+    /// FASTA alignment files
     pub files: Vec<String>,
+
+    /// Taxa list for smart matching (without this, uses exact header matching)
+    #[arg(short, long, requires = "log")]
+    pub taxa: Option<String>,
 
     /// Output format (FASTA or Nexus)
     #[arg(short, long, default_value = "FASTA")]
@@ -22,9 +22,9 @@ pub struct ConcatArgs {
     #[arg(short, long, default_value = "N")]
     pub missing: String,
 
-    /// Provenance TSV output file
+    /// Provenance TSV output file (only used with -t)
     #[arg(short = 'l', long = "log")]
-    pub log: String,
+    pub log: Option<String>,
 }
 
 /// Match taxa names to FASTA headers using case-insensitive substring search.
@@ -61,18 +61,46 @@ fn match_taxa(
 }
 
 pub fn run(args: ConcatArgs) {
-    let taxa = load_taxa_list(&args.taxa_list).expect("Failed to load taxa list");
-
+    // Parse all gene files
     let mut gene_data = Vec::new();
     for file in &args.files {
         let (sequences, length) = parse_fasta(file, true).expect("Failed to parse fasta file");
         gene_data.push((file, sequences, length));
     }
 
-    let mut matched_genes = Vec::new();
-    for (file, sequences, length) in &gene_data {
-        let matched = match_taxa(&taxa, sequences);
-        matched_genes.push((file, matched, length));
+    let smart_matching = args.taxa.is_some();
+
+    // Determine taxa list and build matched_genes
+    let taxa: Vec<String>;
+    let mut matched_genes: Vec<(&String, HashMap<String, (String, String)>, &usize)> = Vec::new();
+
+    if let Some(ref taxa_file) = args.taxa {
+        // Smart matching mode: load taxa list, match by substring
+        taxa = load_taxa_list(taxa_file).expect("Failed to load taxa list");
+        for (file, sequences, length) in &gene_data {
+            let matched = match_taxa(&taxa, sequences);
+            matched_genes.push((file, matched, length));
+        }
+    } else {
+        // Exact match mode: union of all headers across files becomes the taxa list
+        let mut seen = HashSet::new();
+        let mut taxa_order = Vec::new();
+        for (_file, sequences, _length) in &gene_data {
+            for header in sequences.keys() {
+                if seen.insert(header.clone()) {
+                    taxa_order.push(header.clone());
+                }
+            }
+        }
+        taxa = taxa_order;
+        // Direct lookup — header IS the taxon name, no matching needed
+        for (file, sequences, length) in &gene_data {
+            let mut matched = HashMap::new();
+            for (header, sequence) in sequences {
+                matched.insert(header.clone(), (header.clone(), sequence.clone()));
+            }
+            matched_genes.push((file, matched, length));
+        }
     }
 
     // Build supermatrix: concatenate matched sequences per taxon, fill gaps with missing char
@@ -127,32 +155,37 @@ pub fn run(args: ConcatArgs) {
         }
     }
 
-    // Write provenance TSV — shows which original header matched each taxon per gene
-    let mut log_file = File::create(&args.log).expect("Failed to create provenance log file");
-    // Header row: taxa list filename, then each gene filename
-    let gene_names: Vec<String> = matched_genes
-        .iter()
-        .map(|(file, _, _)| {
-            Path::new(file)
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string()
-        })
-        .collect();
-    writeln!(log_file, "{}\t{}", args.taxa_list, gene_names.join("\t"))
-        .expect("Failed to write to log file");
-    // One row per taxon: taxon name, then matched header or MISSING
-    for taxon in &taxa {
-        let mut row = vec![taxon.clone()];
-        for (_file, matched, _length) in &matched_genes {
-            if matched.contains_key(taxon) {
-                row.push(matched[taxon].0.clone());
-            } else {
-                row.push("MISSING".to_string());
+    // Write provenance TSV (only in smart matching mode, -l is required with -t)
+    if smart_matching {
+        let log_path = args.log.as_ref().unwrap();
+        let taxa_file = args.taxa.as_ref().unwrap();
+        let mut log_file =
+            File::create(log_path).expect("Failed to create provenance log file");
+        // Header row: taxa list filename, then each gene filename
+        let gene_names: Vec<String> = matched_genes
+            .iter()
+            .map(|(file, _, _)| {
+                Path::new(file)
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string()
+            })
+            .collect();
+        writeln!(log_file, "{}\t{}", taxa_file, gene_names.join("\t"))
+            .expect("Failed to write to log file");
+        // One row per taxon: taxon name, then matched header or MISSING
+        for taxon in &taxa {
+            let mut row = vec![taxon.clone()];
+            for (_file, matched, _length) in &matched_genes {
+                if matched.contains_key(taxon) {
+                    row.push(matched[taxon].0.clone());
+                } else {
+                    row.push("MISSING".to_string());
+                }
             }
+            writeln!(log_file, "{}", row.join("\t")).expect("Failed to write to log file");
         }
-        writeln!(log_file, "{}", row.join("\t")).expect("Failed to write to log file");
     }
 }

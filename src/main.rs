@@ -25,6 +25,9 @@ enum Commands {
     /// Concatenate alignments into a supermatrix
     #[command(visible_alias = "liger")]
     Concat(cmd::concat::ConcatArgs),
+
+    /// Alignment summary statistics
+    Stats(cmd::stats::StatsArgs),
 }
 
 fn main() {
@@ -35,5 +38,6 @@ fn main() {
     match cli.command {
         Commands::Getheaders(args) => cmd::getheaders::run(args),
         Commands::Concat(args) => cmd::concat::run(args),
+        Commands::Stats(args) => cmd::stats::run(args),
     }
 }
