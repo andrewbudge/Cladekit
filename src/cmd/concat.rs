@@ -10,9 +10,9 @@ pub struct ConcatArgs {
     /// FASTA alignment files
     pub files: Vec<String>,
 
-    /// Taxa list for smart matching (without this, uses exact header matching)
+    /// Alias list for smart matching — output names that map to messy input headers
     #[arg(short, long, requires = "log")]
-    pub taxa: Option<String>,
+    pub alias: Option<String>,
 
     /// Output format (FASTA or Nexus)
     #[arg(short, long, default_value = "FASTA")]
@@ -22,7 +22,7 @@ pub struct ConcatArgs {
     #[arg(short, long, default_value = "N")]
     pub missing: String,
 
-    /// Provenance TSV output file (only used with -t)
+    /// Provenance TSV output file (required with -a)
     #[arg(short = 'l', long = "log")]
     pub log: Option<String>,
 }
@@ -68,13 +68,13 @@ pub fn run(args: ConcatArgs) {
         gene_data.push((file, sequences, length));
     }
 
-    let smart_matching = args.taxa.is_some();
+    let smart_matching = args.alias.is_some();
 
     // Determine taxa list and build matched_genes
     let taxa: Vec<String>;
     let mut matched_genes: Vec<(&String, HashMap<String, (String, String)>, &usize)> = Vec::new();
 
-    if let Some(ref taxa_file) = args.taxa {
+    if let Some(ref taxa_file) = args.alias {
         // Smart matching mode: load taxa list, match by substring
         taxa = load_taxa_list(taxa_file).expect("Failed to load taxa list");
         for (file, sequences, length) in &gene_data {
@@ -158,7 +158,7 @@ pub fn run(args: ConcatArgs) {
     // Write provenance TSV (only in smart matching mode, -l is required with -t)
     if smart_matching {
         let log_path = args.log.as_ref().unwrap();
-        let taxa_file = args.taxa.as_ref().unwrap();
+        let taxa_file = args.alias.as_ref().unwrap();
         let mut log_file =
             File::create(log_path).expect("Failed to create provenance log file");
         // Header row: taxa list filename, then each gene filename

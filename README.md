@@ -41,12 +41,21 @@ Sequence2
 
 ### concat (liger)
 
-Concatenate multiple gene alignments into a supermatrix. Over **1,000x faster** than FASconCAT-G on a 100 taxa x 20 gene benchmark (9ms vs 9.8s), and unlike other tools, input files can live anywhere — no need to dump everything into one directory.
+Concatenate multiple gene alignments into a supermatrix. Unlike other tools, input files can live anywhere and globs are accepted.
+
+**Benchmark vs FASconCAT-G:**
+
+| Scale | Taxa x Genes | phylo | FASconCAT-G | Speedup |
+|---|---|---|---|---|
+| Small | 100 x 20 | 19ms | 12s | **637x** |
+| Medium | 300 x 50 | 146ms | 4 min | **1,646x** |
+| Large | 1,000 x 30 | 225ms | 5.4 min | **1,438x** |
+| Mega | 4,000 x 30 | 968ms | crash | - |
 
 Concat runs in two modes:
 
-- **Exact match (default):** headers must match exactly across files, like FASconCAT and AMAS. Simple and fast.
-- **Smart match (`-t taxa.txt`):** case-insensitive substring matching links a taxa list to messy GenBank-style headers. Longer taxon names match first to prevent partial collisions (e.g., "Mus musculus domesticus" claims before "Mus musculus"). Requires `-l` for a provenance TSV — the audit trail that records which original header matched each taxon.
+- **Exact match (default):** headers must match exactly across files, like FASconCAT and AMAS.
+- **Smart match (`-a alias.txt`):** pass an alias list — a file of clean output names (one per line, e.g. `Mus_musculus`) that get matched to messy input headers via case-insensitive substring search. Underscores in aliases match spaces in headers, so `Mus_musculus` finds `AB123.1 Mus musculus COX1 gene, partial cds`. Longer aliases match first to prevent partial collisions. The alias list doubles as a rename map — input headers stay messy, output gets clean names. Requires `-l` for a provenance TSV that records exactly which original header matched each alias.
 
 FASTA output goes to stdout, partition boundaries to stderr. NEXUS bundles everything into one file.
 
@@ -58,15 +67,15 @@ gene1.fasta = 1-4
 gene2.fasta = 5-8
 ```
 
-**Smart match — messy headers:**
+**Smart match — messy headers with an alias list:**
 
 ```bash
-$ cat taxa.txt
+$ cat alias.txt
 Mus_musculus
 Rattus_rattus
 Xenopus_laevis
 
-$ phylo concat -t taxa.txt -l prov.tsv gene1.fasta gene2.fasta > supermatrix.fasta
+$ phylo concat -a alias.txt -l prov.tsv gene1.fasta gene2.fasta > supermatrix.fasta
 gene1.fasta = 1-4
 gene2.fasta = 5-8
 
@@ -79,7 +88,7 @@ ATCGNNNN
 NNNNATCG
 
 $ cat prov.tsv
-taxa.txt	gene1.fasta	gene2.fasta
+alias.txt	gene1.fasta	gene2.fasta
 Mus_musculus	AB123.1 Mus musculus gene1 cds	XM456.1 Mus musculus gene2 cds
 Rattus_rattus	AB124.1 Rattus rattus gene1 cds	MISSING
 Xenopus_laevis	MISSING	XM789.1 Xenopus laevis gene2 cds
@@ -88,7 +97,7 @@ Xenopus_laevis	MISSING	XM789.1 Xenopus laevis gene2 cds
 **NEXUS output:**
 
 ```bash
-$ phylo concat -t taxa.txt -l prov.tsv -f nexus gene1.fasta gene2.fasta
+$ phylo concat -a alias.txt -l prov.tsv -f nexus gene1.fasta gene2.fasta
 #NEXUS
 BEGIN DATA;
   DIMENSIONS NTAX=3 NCHAR=8;
@@ -106,40 +115,34 @@ END;
 ```
 
 **Flags:**
-- `-t, --taxa` — taxa list for smart matching (enables substring search + header renaming)
-- `-l, --log` — provenance TSV output file (required with `-t`)
+- `-a, --alias` — alias list for smart matching (clean output names that map to messy input headers)
+- `-l, --log` — provenance TSV output file (required with `-a`)
 - `-f, --format` — output format: fasta (default), nexus (also accepts `n` or `nex`)
 - `-m, --missing` — character for missing data (default: N)
 
 ### stats
 
-Get basic alignment statistics from FASTA files. Accepts multiple files via globs.
+Get basic alignment statistics from FASTA files. Accepts multiple files via globs. Automatically detects DNA vs amino acid sequences.
 
 **Columns:**
 - **file** — filename (path stripped)
 - **sequences** — number of sequences
 - **length** — alignment length (NA if unaligned)
-- **gc_pct** — GC content as a percentage of real bases (excluding gaps/N)
-- **missing_pct** — percentage of gaps and N characters
-- **variable** — sites with at least 2 different bases (excluding gaps/N)
+- **type** — `DNA` or `AA` (auto-detected, supports IUPAC ambiguity codes)
+- **gc_pct** — GC content as a percentage of real bases (NA for amino acid data)
+- **missing_pct** — percentage of gaps and unknown characters
+- **variable** — sites with at least 2 different residues (excluding gaps/unknowns)
 - **variable_pct** — variable sites as a percentage of alignment length
-- **informative** — parsimony-informative sites (at least 2 bases each appearing 2+ times)
+- **informative** — parsimony-informative sites (at least 2 residues each appearing 2+ times)
 - **informative_pct** — informative sites as a percentage of alignment length
 
 **Example:**
 
 ```bash
-$ cat supermatrix.fasta
->Mus_musculus
-ATCGATCG
->Rattus_rattus
-ATCGNNNN
->Xenopus_laevis
-NNNNATCG
-
-$ phylo stats supermatrix.fasta
-file	sequences	length	gc_pct	missing_pct	variable	variable_pct	informative	informative_pct
-supermatrix.fasta	3	8	50.0	33.3	0	0.0	0	0.0
+$ phylo stats supermatrix.fasta proteins.fasta
+file	sequences	length	type	gc_pct	missing_pct	variable	variable_pct	informative	informative_pct
+supermatrix.fasta	3	8	DNA	50.0	33.3	0	0.0	0	0.0
+proteins.fasta	4	20	AA	NA	0.0	3	15.0	2	10.0
 ```
 
 ## Planned Subcommands
