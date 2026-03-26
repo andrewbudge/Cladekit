@@ -1,5 +1,5 @@
 <div align="left">
-  <img src="docs/mockup_logos/cladekit-slickrock-horizontal-dark.svg">
+  <img src="docs/mockup_logos/cladekit-slickrock-horizontal-dark.svg" width = "600">
 </div>
 
 Cladekit is a lightweight, composable CLI phylogenetics toolkit. A single binary, Cladekit provides many subcommands that replace common chains of bash commands or a collection of individual programs in phylogenetic pipelines. Examples include header extraction, concatenation, and alignment quality control.
