@@ -1,4 +1,4 @@
-<div align="center">
+<div align="left">
   <img src="docs/mockup_logos/cladekit-slickrock-horizontal-dark.svg" width="400">
 </div>
 
