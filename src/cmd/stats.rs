@@ -8,9 +8,11 @@ pub struct StatsArgs {
     /// FASTA alignment files
     pub files: Vec<String>,
 
+    /// Sequence specific statistics
     #[arg(short = 'd', long = "detailed")]
     pub detailed: bool,
 
+    /// Print output in more human readable way
     #[arg(short = 'p', long = "pretty")]
     pub pretty: bool,
 }

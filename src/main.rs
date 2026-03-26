@@ -28,6 +28,9 @@ enum Commands {
 
     /// Alignment summary statistics
     Stats(cmd::stats::StatsArgs),
+
+    /// Summarize taxa coverage from a concat provenance TSV
+    Coverage(cmd::coverage::CoverageArgs),
 }
 
 fn main() {
@@ -39,5 +42,6 @@ fn main() {
         Commands::Getheaders(args) => cmd::getheaders::run(args),
         Commands::Concat(args) => cmd::concat::run(args),
         Commands::Stats(args) => cmd::stats::run(args),
+        Commands::Coverage(args) => cmd::coverage::run(args),
     }
 }
