@@ -23,7 +23,7 @@ cargo install --force --git https://github.com/andrewbudge/cladekit
 ```
 
 ## Subcommands
-
+---
 ### getheaders (ghd)
 
 Extract headers from FASTA files.
@@ -40,7 +40,7 @@ $ cladekit getheaders -u testdata/test_good.fasta
 Sequence1
 Sequence2
 ```
-
+---
 ### concat (liger)
 
 Concatenate multiple gene alignments into a supermatrix. Unlike other tools, input files can live anywhere and globs are accepted.
@@ -113,7 +113,7 @@ END;
 - `-f, --format` — output format: fasta (default), nexus (also accepts `n` or `nex`)
 - `-m, --missing` — override missing data character (default: auto per data type — N for DNA, X for amino acid, ? for mixed)
 - `-p, --partitions` — partition format: raxml (default, also used by IQ-TREE) or nexus
-
+---
 ### stats
 
 Get basic alignment statistics from FASTA files. Accepts multiple files via globs. Automatically detects DNA vs amino acid sequences.
@@ -142,7 +142,7 @@ proteins.fasta	4	20	AA	NA	0.0	3	15.0	2	10.0
 **Flags:**
 - `-d, --detailed` — per-sequence statistics (header, length, GC%, missingness)
 - `-p, --pretty` — column-aligned output for readability
-
+---
 ### coverage
 
 Summarize taxa and loci coverage from a concat provenance TSV. Shows how many loci each taxon appears in, or how many taxa each locus has.
@@ -165,7 +165,7 @@ COX1_aln.fas  6/8               25.0%
 - `-t, --taxa` — show per-taxon coverage (how many loci each taxon has)
 - `-l, --loci` — show per-loci coverage (how many taxa each locus has)
 - `-p, --pretty` — column-aligned output for readability
-
+---
 ### convert
 
 Convert between common sequence data file types. Auto-detects the input format from file contents.
@@ -200,7 +200,7 @@ Taxon_C    ATCGNNNN
 
 **Flags:**
 - `-o, --output_format` — output format: `f` (fasta), `n` (nexus), `rp` (relaxed phylip), `sp` (strict phylip)
-
+---
 ## Planned Subcommands
 - **filter** — remove taxa exceeding a missingness threshold from a supermatrix
 - **scrub** — alignment outlier detection via pairwise p-distances
