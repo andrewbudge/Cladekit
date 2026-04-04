@@ -1,3 +1,4 @@
+pub mod align;
 pub mod concat;
 pub mod convert;
 pub mod coverage;

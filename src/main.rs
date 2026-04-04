@@ -34,6 +34,10 @@ enum Commands {
 
     /// Convert between common sequence data file types
     Convert(cmd::convert::ConvertArgs),
+
+    /// Batch align FASTA files using an external alignment program
+    #[command(visible_alias = "aln")]
+    Align(cmd::align::AlignArgs),
 }
 
 fn main() {
@@ -47,5 +51,6 @@ fn main() {
         Commands::Stats(args) => cmd::stats::run(args),
         Commands::Coverage(args) => cmd::coverage::run(args),
         Commands::Convert(args) => cmd::convert::run(args),
+        Commands::Align(args) => cmd::align::run(args),
     }
 }
