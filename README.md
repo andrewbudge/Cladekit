@@ -201,11 +201,41 @@ Taxon_C    ATCGNNNN
 **Flags:**
 - `-o, --output_format` — output format: `f` (fasta), `n` (nexus), `rp` (relaxed phylip), `sp` (strict phylip)
 ---
+### align (aln)
+
+Batch align multiple FASTA files using an external alignment program. Runs the aligner on each input file and writes output to a directory with a consistent naming convention.
+
+**Example:**
+
+```bash
+$ cladekit align -p mafft -i genes/*.fasta -e _aln -o aligned/
+Aligning COI...done
+Aligning ND2...done
+Aligning 12S...done
+Done. Aligned 3 files.
+```
+
+Pass custom flags to the aligner after `--`:
+
+```bash
+$ cladekit align -p mafft -i genes/*.fasta -e _aln -o aligned/ -- --thread 4 --maxiterate 1000
+```
+
+**Flags:**
+- `-p, --program` — alignment program name or path (e.g., `mafft`, `/usr/local/bin/muscle`)
+- `-i, --input` — input unaligned FASTA files (glob or list)
+- `-e, --extension` — suffix to append to output filenames (default: `_aln`)
+- `-o, --output` — output directory for aligned files
+- `--` — everything after `--` is passed through to the aligner verbatim
+---
 ## Planned Subcommands
-- **filter** — remove taxa exceeding a missingness threshold from a supermatrix
+- **extract** — homology-based gene extraction from FASTA sequences via MMseqs2 (reference + targets → per-gene FASTAs)
 - **scrub** — alignment outlier detection via pairwise p-distances
-- **view** - in terminal alignment viewer
-- **slice** - cut out and remove sections of an alignment (remove non-homologous seqs, extract homologous seqs)
+- **curate** — alignment column trimming (native ClipKIT port — keeps parsimony-informative sites)
+- **drafttree** — quick neighbor-joining tree from an MSA for sanity-checking alignments before committing to ML/Bayesian methods
+- **filter** — remove taxa exceeding a missingness threshold from a supermatrix
+- **view** — in-terminal alignment viewer
+- **slice** — cut out or extract sections of an alignment
 
 ## Development Note
 

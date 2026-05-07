@@ -38,6 +38,8 @@ enum Commands {
     /// Batch align FASTA files using an external alignment program
     #[command(visible_alias = "aln")]
     Align(cmd::align::AlignArgs),
+
+    // Cluster(cmd::cluster::ClusterArgs), // WIP: metagenomics use case, deprioritized
 }
 
 fn main() {
@@ -52,5 +54,6 @@ fn main() {
         Commands::Coverage(args) => cmd::coverage::run(args),
         Commands::Convert(args) => cmd::convert::run(args),
         Commands::Align(args) => cmd::align::run(args),
+        // Commands::Cluster(args) => cmd::cluster::run(args), // WIP: deprioritized
     }
 }

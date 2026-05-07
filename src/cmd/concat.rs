@@ -29,6 +29,10 @@ pub struct ConcatArgs {
     /// Provenance TSV output file (required with -a)
     #[arg(short = 'l', long = "log")]
     pub log: Option<String>,
+
+    /// Dry run: show matching summary without building the supermatrix
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 /// Match taxa names to FASTA headers using case-insensitive substring search.
@@ -53,7 +57,7 @@ fn match_taxa(
             }
             if header
                 .to_lowercase()
-                .contains(&taxon.to_lowercase().replace("_", " "))
+                .contains(&taxon.to_lowercase())
             {
                 claimed_headers.insert(header.clone());
                 results.insert(taxon.clone(), (header.clone(), sequence.clone()));
@@ -121,6 +125,47 @@ pub fn run(args: ConcatArgs) {
             }
             matched_genes.push((file, matched, length));
         }
+    }
+
+    // Dry run: show matching summary and exit
+    if args.dry_run {
+        eprintln!("=== Dry Run: Matching Summary ===\n");
+
+        // Per-gene match counts
+        eprintln!("{:<40} {:>8} {:>8} {:>8}", "Gene", "Seqs", "Matched", "Missing");
+        eprintln!("{}", "-".repeat(68));
+        for (file, matched, _length) in &matched_genes {
+            let name = Path::new(file).file_name().unwrap().to_str().unwrap();
+            let matched_count = matched.len();
+            let missing_count = taxa.len() - matched_count;
+            let seq_count = gene_data.iter().find(|(f, _, _)| f == file).map(|(_, s, _)| s.len()).unwrap_or(0);
+            eprintln!("{:<40} {:>8} {:>8} {:>8}", name, seq_count, matched_count, missing_count);
+        }
+
+        // Per-taxon coverage
+        eprintln!("\n{:<40} {:>8}", "Taxon", "Genes");
+        eprintln!("{}", "-".repeat(50));
+        let mut taxa_coverage: Vec<(&String, usize)> = taxa.iter().map(|taxon| {
+            let count = matched_genes.iter().filter(|(_, matched, _)| matched.contains_key(taxon)).count();
+            (taxon, count)
+        }).collect();
+        taxa_coverage.sort_by(|a, b| b.1.cmp(&a.1));
+
+        for (taxon, count) in &taxa_coverage {
+            eprintln!("{:<40} {:>8}/{}", taxon, count, matched_genes.len());
+        }
+
+        // Summary
+        let total_genes = matched_genes.len();
+        let full_coverage = taxa_coverage.iter().filter(|(_, c)| *c == total_genes).count();
+        let any_coverage = taxa_coverage.iter().filter(|(_, c)| *c > 0).count();
+        let no_coverage = taxa_coverage.iter().filter(|(_, c)| *c == 0).count();
+        eprintln!("\n=== Summary ===");
+        eprintln!("Taxa: {} total, {} with all genes, {} with some, {} with none",
+            taxa.len(), full_coverage, any_coverage, no_coverage);
+        eprintln!("Genes: {}", total_genes);
+
+        return;
     }
 
     // Detect data type per gene using first available sequence

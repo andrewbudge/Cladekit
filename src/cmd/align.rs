@@ -6,7 +6,7 @@ use clap::Args;
 
 #[derive(Args)]
 pub struct AlignArgs {
-    /// Alignment program name or path (e.g., mafft, /usr/local/bin/muscle)
+    /// Alignment program name (only Mafft currently, Muscle and others planned for in the future.)
     #[arg(short, long)]
     pub program: String,
 
