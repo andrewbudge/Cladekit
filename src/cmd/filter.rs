@@ -1,5 +1,8 @@
 use cladekit::parse_fasta;
 use clap::Args;
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 #[derive(Args)]
 pub struct FilterArgs {
@@ -20,14 +23,39 @@ pub struct FilterArgs {
 }
 
 pub fn run(args: FilterArgs) {
-    // TODO: parse the input FASTA (use parse_fasta from crate::)
-    //   - if args.input is Some(path), parse that file
-    //   - if None, we'll handle stdin later — for now just expect a file
     let (sequences, _) = parse_fasta(&args.input, false).expect("Could not open file");
+
+    // Parse the provenance TSV once before the loop
+    let loci_counts: HashMap<String, usize> = if let Some(log) = &args.log {
+        let file = File::open(log).expect("Could not open provenance TSV");
+        let reader = BufReader::new(file);
+        let mut counts = HashMap::new();
+        for line in reader.lines().skip(1) {
+            let line = line.unwrap();
+            let fields: Vec<&str> = line.split('\t').collect();
+            if fields.len() < 2 {
+                continue;
+            }
+            let taxon = fields[0].to_string();
+            let count: usize = fields[1]
+                .split('/')
+                .next()
+                .unwrap_or("0")
+                .parse()
+                .unwrap_or(0);
+            counts.insert(taxon, count);
+        }
+        counts
+    } else {
+        HashMap::new()
+    };
+
+    let total = sequences.len();
     let mut kept = Vec::new();
 
     for (header, seq) in &sequences {
         let mut keep = true;
+
         if let Some(threshold) = args.max_missing {
             let mut missing = 0;
             for ch in seq.chars() {
@@ -42,17 +70,25 @@ pub fn run(args: FilterArgs) {
             }
         }
 
-        // TODO: if let Some(min_loci) = args.min_loci { ... check provenance TSV ... }
+        if let Some(min_loci) = args.min_loci {
+            if let Some(&count) = loci_counts.get(header) {
+                if count < min_loci {
+                    keep = false;
+                }
+            }
+        }
 
         if keep {
             kept.push((header.clone(), seq.clone()));
         }
     }
 
-    // TODO: print kept sequences to stdout in FASTA format (>header\nsequence\n)
+    for (header, seq) in &kept {
+        println!(">{}", header);
+        println!("{}", seq);
+    }
 
-    // TODO: print a summary to stderr:
-    //   - how many taxa were in the input
-    //   - how many passed
-    //   - how many were dropped
+    eprintln!("Total taxa: {}", total);
+    eprintln!("Kept taxa: {}", kept.len());
+    eprintln!("Dropped taxa: {}", total - kept.len());
 }
