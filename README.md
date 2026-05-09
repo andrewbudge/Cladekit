@@ -266,11 +266,36 @@ $ cladekit align -p mafft -i genes/*.fasta -e _aln -o aligned/ -- --thread 4 --m
 - `-o, --output` — output directory for aligned files
 - `--` — everything after `--` is passed through to the aligner verbatim
 ---
+### filter
+
+Remove taxa from an alignment that exceed a missingness threshold, have too few loci in a supermatrix, or both. Filters can be used independently or combined — a taxon must pass all applied filters to be kept. Output goes to stdout, summary to stderr.
+
+**Example:**
+
+```bash
+# drop taxa with more than 50% gaps in the supermatrix
+$ cladekit filter supermatrix.fasta --max-missing 0.5 > filtered.fasta
+Total taxa: 8
+Kept taxa: 6
+Dropped taxa: 2
+
+# drop taxa present in fewer than 3 loci (requires coverage TSV from cladekit coverage)
+$ cladekit coverage -t prov.tsv > coverage.tsv
+$ cladekit filter supermatrix.fasta --min-loci 3 -l coverage.tsv > filtered.fasta
+
+# both filters at once
+$ cladekit filter supermatrix.fasta --max-missing 0.5 --min-loci 3 -l coverage.tsv > filtered.fasta
+```
+
+**Flags:**
+- `--max-missing` — maximum allowed missingness fraction per taxon (0.0–1.0)
+- `--min-loci` — minimum number of loci a taxon must be present in
+- `-l, --log` — coverage TSV from `cladekit coverage` (required with `--min-loci`)
+---
 ## Planned Subcommands
 - **scrub** — alignment outlier detection via pairwise p-distances
 - **curate** — alignment column trimming (native ClipKIT port — keeps parsimony-informative sites)
 - **drafttree** — quick neighbor-joining tree from an MSA for sanity-checking alignments before committing to ML/Bayesian methods
-- **filter** — remove taxa exceeding a missingness threshold from a supermatrix
 - **view** — in-terminal alignment viewer
 - **slice** — cut out or extract sections of an alignment
 

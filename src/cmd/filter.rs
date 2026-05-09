@@ -18,12 +18,13 @@ pub struct FilterArgs {
     pub log: Option<String>,
 
     /// Minimum number of loci a taxon must be present in
-    #[arg(long)]
+    #[arg(short = 'n', long)]
     pub min_loci: Option<usize>,
 }
 
 pub fn run(args: FilterArgs) {
-    let (sequences, _) = parse_fasta(&args.input, false).expect("Could not open file");
+    let (sequences, _) = parse_fasta(&args.input, true)
+        .expect("Could not read alignment (file not found or sequences are not the same length)");
 
     // Parse the provenance TSV once before the loop
     let loci_counts: HashMap<String, usize> = if let Some(log) = &args.log {
