@@ -201,6 +201,44 @@ Taxon_C    ATCGNNNN
 **Flags:**
 - `-o, --output_format` — output format: `f` (fasta), `n` (nexus), `rp` (relaxed phylip), `sp` (strict phylip)
 ---
+### extract
+
+Extract gene regions from target organism sequences using homology search. Takes a reference FASTA with labeled gene sequences and one or more target FASTAs (or a directory), runs MMseqs2 `easy-search`, and writes one output FASTA per gene containing the extracted region from each organism that had a hit.
+
+Requires [MMseqs2](https://github.com/soedinglab/MMseqs2) installed and in your PATH.
+
+**Example:**
+
+```bash
+# reference.fasta has labeled genes: >COX1, >ND2, >12S
+# targets/ contains one FASTA per organism
+
+$ cladekit extract -r reference.fasta -t targets/ -o genes/
+Pooling 12 target files...
+Running MMseqs2 easy-search...
+Parsing results...
+Done. Extracted 3 gene(s) from 34 hits.
+
+$ ls genes/
+COX1.fasta  ND2.fasta  12S.fasta
+```
+
+Feeds directly into `align`:
+
+```bash
+$ cladekit extract -r reference.fasta -t targets/ -o genes/
+$ cladekit align -p mafft -i genes/*.fasta -e _aln -o aligned/
+```
+
+**Flags:**
+- `-r, --reference` — reference FASTA with labeled gene sequences (e.g., `>COX1`, `>ND2`)
+- `-t, --targets` — target organism FASTA files or a directory containing them
+- `-o, --output` — output directory for per-gene FASTAs
+- `-s, --sensitivity` — MMseqs2 sensitivity, 1.0 (fast) to 7.5 (max); default 5.7
+- `--min-coverage` — minimum fraction of the reference gene that must be covered to keep a hit (default: 0.5)
+- `--flank` — extra bases to grab on either side of each hit (default: 0)
+- `--keep-intermediates` — keep the temp directory with pooled targets and raw MMseqs2 output
+---
 ### align (aln)
 
 Batch align multiple FASTA files using an external alignment program. Runs the aligner on each input file and writes output to a directory with a consistent naming convention.
@@ -229,7 +267,6 @@ $ cladekit align -p mafft -i genes/*.fasta -e _aln -o aligned/ -- --thread 4 --m
 - `--` — everything after `--` is passed through to the aligner verbatim
 ---
 ## Planned Subcommands
-- **extract** — homology-based gene extraction from FASTA sequences via MMseqs2 (reference + targets → per-gene FASTAs)
 - **scrub** — alignment outlier detection via pairwise p-distances
 - **curate** — alignment column trimming (native ClipKIT port — keeps parsimony-informative sites)
 - **drafttree** — quick neighbor-joining tree from an MSA for sanity-checking alignments before committing to ML/Bayesian methods

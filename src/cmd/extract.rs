@@ -164,6 +164,12 @@ pub fn run(args: ExtractArgs) {
     eprintln!("Pooling {} target files...", target_files.len());
     let lookup = pool_targets(&target_files, &pooled_path);
 
+    let log_path = Path::new(&args.output).join("mmseqs.log");
+    let log_file = File::create(&log_path).expect("Could not create mmseqs.log");
+    let log_file2 = log_file
+        .try_clone()
+        .expect("Could not clone log file handle");
+
     eprintln!("Running MMseqs2 easy-search...");
     let status = Command::new("mmseqs")
         .args([
@@ -179,11 +185,16 @@ pub fn run(args: ExtractArgs) {
             "--format-output",
             "query,target,tstart,tend,qstart,qend,qlen",
         ])
+        .stdout(log_file)
+        .stderr(log_file2)
         .status()
         .expect("Failed to run mmseqs");
 
     if !status.success() {
-        eprintln!("Error: mmseqs easy-search failed.");
+        eprintln!(
+            "Error: mmseqs easy-search failed. See {}",
+            log_path.display()
+        );
         std::process::exit(1);
     }
 
