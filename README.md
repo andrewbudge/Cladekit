@@ -48,7 +48,7 @@ Concatenate multiple gene alignments into a supermatrix. Unlike other tools, inp
 Concat runs in two modes:
 
 - **Exact match (default):** headers must match exactly across files, like FASconCAT and AMAS.
-- **Smart match (`-a alias.txt`):** pass an alias list — a file of clean output names (one per line, e.g. `Mus_musculus`) that get matched to messy input headers via case-insensitive substring search. Underscores in aliases match spaces in headers, so `Mus_musculus` finds `AB123.1 Mus musculus COX1 gene, partial cds`. Longer aliases match first to prevent partial collisions. The alias list doubles as a rename map — input headers stay messy, output gets clean names. Requires `-l` for a provenance TSV that records exactly which original header matched each alias.
+- **Smart match (`-a alias.txt`):** pass an alias list — a file of clean output names (one per line, e.g. `Mus_musculus`) that get matched to messy input headers via case-insensitive substring search. Longer aliases match first to prevent partial collisions (e.g. `Mus musculus domesticus` claims before `Mus musculus`). Once a header is claimed it cannot be matched again. The alias list doubles as a rename map — input headers stay messy, output gets clean names. Requires `-l` for a provenance TSV that records exactly which original header matched each alias.
 
 Concat auto-detects DNA vs amino acid data per gene and adjusts missing characters and partition labels accordingly. FASTA output goes to stdout, partition boundaries to stderr in RAxML/IQ-TREE format by default. NEXUS bundles everything into one file.
 
@@ -113,6 +113,7 @@ END;
 - `-f, --format` — output format: fasta (default), nexus (also accepts `n` or `nex`)
 - `-m, --missing` — override missing data character (default: auto per data type — N for DNA, X for amino acid, ? for mixed)
 - `-p, --partitions` — partition format: raxml (default, also used by IQ-TREE) or nexus
+- `--dry-run` — show a matching summary (per-gene match counts and per-taxon coverage) without building the supermatrix
 ---
 ### stats
 

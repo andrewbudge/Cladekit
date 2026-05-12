@@ -44,8 +44,6 @@ enum Commands {
 
     /// Remove taxa exceeding a missingness threshold from an alignment
     Filter(cmd::filter::FilterArgs),
-
-    // Cluster(cmd::cluster::ClusterArgs), // WIP: metagenomics use case, deprioritized
 }
 
 fn main() {
@@ -62,6 +60,5 @@ fn main() {
         Commands::Align(args) => cmd::align::run(args),
         Commands::Extract(args) => cmd::extract::run(args),
         Commands::Filter(args) => cmd::filter::run(args),
-        // Commands::Cluster(args) => cmd::cluster::run(args), // WIP: deprioritized
     }
 }
