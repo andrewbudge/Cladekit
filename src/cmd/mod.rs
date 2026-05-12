@@ -1,6 +1,7 @@
 pub mod align;
 pub mod concat;
 pub mod convert;
+pub mod curate;
 pub mod coverage;
 pub mod extract;
 pub mod filter;

@@ -224,13 +224,6 @@ $ ls genes/
 COX1.fasta  ND2.fasta  12S.fasta
 ```
 
-Feeds directly into `align`:
-
-```bash
-$ cladekit extract -r reference.fasta -t targets/ -o genes/
-$ cladekit align -p mafft -i genes/*.fasta -e _aln -o aligned/
-```
-
 **Flags:**
 - `-r, --reference` — reference FASTA with labeled gene sequences (e.g., `>COX1`, `>ND2`)
 - `-t, --targets` — target organism FASTA files or a directory containing them
@@ -293,9 +286,51 @@ $ cladekit filter supermatrix.fasta --max-missing 0.5 --min-loci 3 -l coverage.t
 - `--min-loci` — minimum number of loci a taxon must be present in
 - `-l, --log` — coverage TSV from `cladekit coverage` (required with `--min-loci`)
 ---
+### curate
+
+Trim alignment columns by parsimony-informativeness and gappiness. A native Rust port of [ClipKIT](https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.3001007) (Steenwyk et al. 2020). Accepts multiple files and a glob. Output goes to a directory or stdout, summary to stderr.
+
+Compose keep conditions with `-k`: `p` = parsimony-informative, `c` = constant, `g` = gappiness filter. Combine letters for mixed modes.
+
+**Example:**
+
+```bash
+# single file to stdout
+$ cladekit curate alignment.fasta > trimmed.fasta
+Sites in:      10000
+Sites kept:    4321
+Sites removed: 5679
+
+# batch with glob, output to directory
+$ cladekit curate aligned/*.fasta -o curated/
+COI: 8000 → 3201 sites (4799 removed)
+ND2: 6000 → 2874 sites (3126 removed)
+12S: 4000 → 1950 sites (2050 removed)
+Done. Curated 3 files.
+
+# custom extension and stricter gap threshold
+$ cladekit curate aligned/*.fasta -e _trim --gap-threshold 0.5 -o curated/
+```
+
+**Flags:**
+- `-k, --keep` — column properties to keep: `p` (parsimony-informative), `c` (constant), `g` (gappiness filter). Combine letters: `p`, `pc`, `pg` (default), `pcg`, `g`
+- `--gap-threshold` — maximum allowed gappiness per column (0.0–1.0), used when `g` is in `--keep` (default: 0.9)
+- `-e, --extension` — suffix to append to output filenames (default: `_curated`)
+- `-o, --output` — output directory for trimmed files (if omitted, writes to stdout)
+
+**Mode reference:**
+
+| Flag | ClipKIT equivalent |
+|---|---|
+| `-k p` | `kpi` |
+| `-k pc` | `kpic` |
+| `-k g` | `gappy` |
+| `-k pg` | `kpi-gappy` (default) |
+| `-k pcg` | `kpic-gappy` |
+
+---
 ## Planned Subcommands
 - **scrub** — alignment outlier detection via pairwise p-distances
-- **curate** — alignment column trimming (native ClipKIT port — keeps parsimony-informative sites)
 - **drafttree** — quick neighbor-joining tree from an MSA for sanity-checking alignments before committing to ML/Bayesian methods
 - **view** — in-terminal alignment viewer
 - **slice** — cut out or extract sections of an alignment

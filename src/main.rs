@@ -39,6 +39,9 @@ enum Commands {
     #[command(visible_alias = "aln")]
     Align(cmd::align::AlignArgs),
 
+    /// Trim alignment columns by parsimony-informativeness and gappiness
+    Curate(cmd::curate::CurateArgs),
+
     /// Extract gene regions from target sequences using homology search
     Extract(cmd::extract::ExtractArgs),
 
@@ -58,6 +61,7 @@ fn main() {
         Commands::Coverage(args) => cmd::coverage::run(args),
         Commands::Convert(args) => cmd::convert::run(args),
         Commands::Align(args) => cmd::align::run(args),
+        Commands::Curate(args) => cmd::curate::run(args),
         Commands::Extract(args) => cmd::extract::run(args),
         Commands::Filter(args) => cmd::filter::run(args),
     }
