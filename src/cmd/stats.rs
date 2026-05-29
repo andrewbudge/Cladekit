@@ -28,10 +28,10 @@ struct SequenceStats {
 /// Works for both DNA and protein — counts any non-gap, non-unknown character.
 /// Variable: column has at least 2 different residues (ignoring gaps/X/N/?).
 /// Parsimony-informative: column has at least 2 different residues, each appearing at least twice.
-fn count_informative_sites(sequences: &HashMap<String, String>, length: usize) -> (usize, usize) {
+fn count_informative_sites(sequences: &[(String, String)], length: usize) -> (usize, usize) {
     let mut variable = 0;
     let mut informative = 0;
-    let seqs: Vec<&String> = sequences.values().collect();
+    let seqs: Vec<&String> = sequences.iter().map(|(_, s)| s).collect();
 
     for i in 0..length {
         let mut counts: HashMap<char, usize> = HashMap::new();
@@ -136,7 +136,7 @@ pub fn run(args: StatsArgs) {
             let mut gc_count = 0;
             let mut missing_count = 0;
             let mut total_chars = 0;
-            for seq in sequences.values() {
+            for (_, seq) in &sequences {
                 let stats = calc_seq_stats(seq);
                 gc_count += stats.gc_count;
                 missing_count += stats.missing_count;
@@ -152,7 +152,7 @@ pub fn run(args: StatsArgs) {
             };
 
             let data_type = if dna { "DNA" } else { "AA" };
-            let all_equal = sequences.values().all(|s| s.len() == length);
+            let all_equal = sequences.iter().all(|(_, s)| s.len() == length);
             let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
 
             if all_equal {

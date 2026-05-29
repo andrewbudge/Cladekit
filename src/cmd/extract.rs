@@ -48,9 +48,9 @@ fn collect_targets(targets: &[String]) -> Vec<String> {
             for entry in path.read_dir().unwrap() {
                 let entry = entry.unwrap();
                 let p = entry.path();
-                if p.extension().map_or(false, |e| {
-                    e == "fasta" || e == "fa" || e == "fna" || e == "fas"
-                }) {
+                if p.extension()
+                    .is_some_and(|e| e == "fasta" || e == "fa" || e == "fna" || e == "fas")
+                {
                     files.push(p.to_string_lossy().into_owned());
                 }
             }
@@ -69,7 +69,10 @@ fn collect_targets(targets: &[String]) -> Vec<String> {
 
 // Writes a pooled FASTA to disk with "organism::seq_id" headers.
 // Returns a lookup map from that key to (original_header, full_sequence, original_filename)
-fn pool_targets(target_files: &[String], pooled_path: &Path) -> HashMap<String, (String, String, String)> {
+fn pool_targets(
+    target_files: &[String],
+    pooled_path: &Path,
+) -> HashMap<String, (String, String, String)> {
     let mut writer = File::create(pooled_path).expect("Could not create pooled targets file");
     let mut lookup: HashMap<String, (String, String, String)> = HashMap::new();
 
@@ -229,7 +232,12 @@ pub fn run(args: ExtractArgs) {
             File::create(&out_path).expect("Could not create output file")
         });
 
-        writeln!(writer, ">{} [ref={} hit={} {}-{}]", original_header, hit.query, filename, start, end).unwrap();
+        writeln!(
+            writer,
+            ">{} [ref={} hit={} {}-{}]",
+            original_header, hit.query, filename, start, end
+        )
+        .unwrap();
         writeln!(writer, "{}", extracted).unwrap();
     }
 

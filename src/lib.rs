@@ -1,17 +1,19 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-/// Parse a FASTA file into a map of header -> sequence.
+/// Parse a FASTA file into a list of (header, sequence) pairs in file order.
+/// A Vec (not a map) is used so output order is deterministic and matches the
+/// input — every caller iterates these in order; the ones that need keyed
+/// lookups (concat's matching, filter's loci counts) build their own maps.
 /// When validate_equal is true, all sequences must be the same length (for alignments).
 pub fn parse_fasta(
     filename: &str,
     validate_equal: bool,
-) -> Result<(HashMap<String, String>, usize), String> {
+) -> Result<(Vec<(String, String)>, usize), String> {
     let file = File::open(filename).map_err(|e| format!("Could not open {}: {}", filename, e))?;
     let reader = BufReader::new(file);
 
-    let mut sequences = HashMap::new();
+    let mut sequences = Vec::new();
     let mut current_header = String::new();
     let mut current_seq = String::new();
     let mut expected_length: Option<usize> = None;
@@ -20,11 +22,11 @@ pub fn parse_fasta(
         let line = line.map_err(|e| format!("Error reading file: {}", e))?;
         let line = line.trim().to_string();
 
-        if line.starts_with('>') {
+        if let Some(header) = line.strip_prefix('>') {
             // Save the previous sequence before starting a new one
             if !current_header.is_empty() {
                 current_seq = current_seq.to_uppercase();
-                sequences.insert(current_header.clone(), current_seq.clone());
+                sequences.push((current_header.clone(), current_seq.clone()));
                 if validate_equal {
                     match expected_length {
                         None => expected_length = Some(current_seq.len()),
@@ -39,7 +41,7 @@ pub fn parse_fasta(
                     }
                 }
             }
-            current_header = line[1..].to_string();
+            current_header = header.to_string();
             current_seq.clear();
         } else if !line.is_empty() {
             current_seq.push_str(&line);
@@ -60,17 +62,17 @@ pub fn parse_fasta(
                 }
             }
         }
-        sequences.insert(current_header, current_seq);
+        sequences.push((current_header, current_seq));
     }
 
-    let length = sequences.values().next().map_or(0, |s| s.len());
+    let length = sequences.first().map_or(0, |(_, s)| s.len());
     Ok((sequences, length))
 }
 
 /// Detect whether sequences are DNA or protein.
 /// Allows IUPAC ambiguity codes (R, Y, S, W, K, M, B, D, H, V) in addition to A/T/C/G/N/-.
-pub fn is_dna(sequences: &HashMap<String, String>) -> bool {
-    for seq in sequences.values() {
+pub fn is_dna(sequences: &[(String, String)]) -> bool {
+    for (_, seq) in sequences {
         for ch in seq.chars() {
             match ch {
                 'A' | 'T' | 'C' | 'G' | 'N' | '-' | 'R' | 'Y' | 'S' | 'W' | 'K' | 'M' | 'B'

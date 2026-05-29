@@ -17,7 +17,11 @@ pub fn run(args: GetheadersArgs) {
     let mut seen = HashSet::new();
 
     if args.input.is_empty() {
-        process_reader(BufReader::new(std::io::stdin().lock()), args.unique, &mut seen);
+        process_reader(
+            BufReader::new(std::io::stdin().lock()),
+            args.unique,
+            &mut seen,
+        );
     } else {
         for filename in &args.input {
             let file = File::open(filename).unwrap_or_else(|e| {
@@ -32,8 +36,7 @@ pub fn run(args: GetheadersArgs) {
 fn process_reader(reader: impl BufRead, unique: bool, seen: &mut HashSet<String>) {
     for line in reader.lines() {
         let line = line.expect("Could not read line");
-        if line.starts_with('>') {
-            let header = &line[1..];
+        if let Some(header) = line.strip_prefix('>') {
             if unique {
                 if seen.insert(header.to_string()) {
                     println!("{}", header);

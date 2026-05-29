@@ -1,5 +1,5 @@
-use clap::Args;
 use cladekit::{load_taxa_list, parse_fasta};
+use clap::Args;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
@@ -35,17 +35,18 @@ pub struct ConcatArgs {
     pub dry_run: bool,
 }
 
+/// Per-gene match result: taxon name -> (original FASTA header, sequence).
+/// The header is kept alongside the sequence so we can emit the provenance TSV.
+type MatchedGene = HashMap<String, (String, String)>;
+
 /// Match taxa names to FASTA headers using case-insensitive substring search.
 /// Longer taxa names match first to prevent partial match collisions
 /// (e.g., "Mus musculus domesticus" claims before "Mus musculus").
 /// Once a header is claimed, no other taxon can match it.
 /// Returns taxon -> (original header, sequence) so we can track provenance.
-fn match_taxa(
-    taxa: &[String],
-    sequences: &HashMap<String, String>,
-) -> HashMap<String, (String, String)> {
+fn match_taxa(taxa: &[String], sequences: &[(String, String)]) -> MatchedGene {
     let mut sorted_taxa = taxa.to_vec();
-    sorted_taxa.sort_by(|a, b| b.len().cmp(&a.len()));
+    sorted_taxa.sort_by_key(|t| std::cmp::Reverse(t.len()));
 
     let mut claimed_headers = HashSet::new();
     let mut results = HashMap::new();
@@ -55,10 +56,7 @@ fn match_taxa(
             if claimed_headers.contains(header) {
                 continue;
             }
-            if header
-                .to_lowercase()
-                .contains(&taxon.to_lowercase())
-            {
+            if header.to_lowercase().contains(&taxon.to_lowercase()) {
                 claimed_headers.insert(header.clone());
                 results.insert(taxon.clone(), (header.clone(), sequence.clone()));
                 break;
@@ -119,7 +117,7 @@ pub fn run(args: ConcatArgs) {
 
     // Determine taxa list and build matched_genes
     let taxa: Vec<String>;
-    let mut matched_genes: Vec<(&String, HashMap<String, (String, String)>, &usize)> = Vec::new();
+    let mut matched_genes: Vec<(&String, MatchedGene, &usize)> = Vec::new();
 
     if let Some(ref taxa_file) = args.alias {
         // Smart matching mode: load taxa list, match by substring
@@ -133,7 +131,7 @@ pub fn run(args: ConcatArgs) {
         let mut seen = HashSet::new();
         let mut taxa_order = Vec::new();
         for (_file, sequences, _length) in &gene_data {
-            for header in sequences.keys() {
+            for (header, _) in sequences {
                 if seen.insert(header.clone()) {
                     taxa_order.push(header.clone());
                 }
@@ -162,23 +160,39 @@ pub fn run(args: ConcatArgs) {
         eprintln!("=== Dry Run: Matching Summary ===\n");
 
         // Per-gene match counts
-        eprintln!("{:<40} {:>8} {:>8} {:>8}", "Gene", "Seqs", "Matched", "Missing");
+        eprintln!(
+            "{:<40} {:>8} {:>8} {:>8}",
+            "Gene", "Seqs", "Matched", "Missing"
+        );
         eprintln!("{}", "-".repeat(68));
         for (file, matched, _length) in &matched_genes {
             let name = Path::new(file).file_name().unwrap().to_str().unwrap();
             let matched_count = matched.len();
             let missing_count = taxa.len() - matched_count;
-            let seq_count = gene_data.iter().find(|(f, _, _)| f == file).map(|(_, s, _)| s.len()).unwrap_or(0);
-            eprintln!("{:<40} {:>8} {:>8} {:>8}", name, seq_count, matched_count, missing_count);
+            let seq_count = gene_data
+                .iter()
+                .find(|(f, _, _)| f == file)
+                .map(|(_, s, _)| s.len())
+                .unwrap_or(0);
+            eprintln!(
+                "{:<40} {:>8} {:>8} {:>8}",
+                name, seq_count, matched_count, missing_count
+            );
         }
 
         // Per-taxon coverage
         eprintln!("\n{:<40} {:>8}", "Taxon", "Genes");
         eprintln!("{}", "-".repeat(50));
-        let mut taxa_coverage: Vec<(&String, usize)> = taxa.iter().map(|taxon| {
-            let count = matched_genes.iter().filter(|(_, matched, _)| matched.contains_key(taxon)).count();
-            (taxon, count)
-        }).collect();
+        let mut taxa_coverage: Vec<(&String, usize)> = taxa
+            .iter()
+            .map(|taxon| {
+                let count = matched_genes
+                    .iter()
+                    .filter(|(_, matched, _)| matched.contains_key(taxon))
+                    .count();
+                (taxon, count)
+            })
+            .collect();
         taxa_coverage.sort_by(|a, b| b.1.cmp(&a.1));
 
         for (taxon, count) in &taxa_coverage {
@@ -187,12 +201,20 @@ pub fn run(args: ConcatArgs) {
 
         // Summary
         let total_genes = matched_genes.len();
-        let full_coverage = taxa_coverage.iter().filter(|(_, c)| *c == total_genes).count();
+        let full_coverage = taxa_coverage
+            .iter()
+            .filter(|(_, c)| *c == total_genes)
+            .count();
         let any_coverage = taxa_coverage.iter().filter(|(_, c)| *c > 0).count();
         let no_coverage = taxa_coverage.iter().filter(|(_, c)| *c == 0).count();
         eprintln!("\n=== Summary ===");
-        eprintln!("Taxa: {} total, {} with all genes, {} with some, {} with none",
-            taxa.len(), full_coverage, any_coverage, no_coverage);
+        eprintln!(
+            "Taxa: {} total, {} with all genes, {} with some, {} with none",
+            taxa.len(),
+            full_coverage,
+            any_coverage,
+            no_coverage
+        );
         eprintln!("Genes: {}", total_genes);
 
         // Output tentative provenance TSV (only meaningful in smart matching mode)
@@ -200,7 +222,14 @@ pub fn run(args: ConcatArgs) {
             let taxa_file = args.alias.as_ref().unwrap();
             let gene_names: Vec<String> = matched_genes
                 .iter()
-                .map(|(file, _, _)| Path::new(file).file_name().unwrap().to_str().unwrap().to_string())
+                .map(|(file, _, _)| {
+                    Path::new(file)
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string()
+                })
                 .collect();
 
             let mut rows: Vec<String> = Vec::new();
@@ -255,7 +284,7 @@ pub fn run(args: ConcatArgs) {
     let mut supermatrix: HashMap<String, String> = HashMap::new();
     for taxon in &taxa {
         for (i, (_file, matched, length)) in matched_genes.iter().enumerate() {
-            let entry = supermatrix.entry(taxon.clone()).or_insert(String::new());
+            let entry = supermatrix.entry(taxon.clone()).or_default();
             if matched.contains_key(taxon) {
                 entry.push_str(&matched[taxon].1);
             } else {
@@ -288,7 +317,7 @@ pub fn run(args: ConcatArgs) {
             position + *length - 1,
             &gene_types[i],
         ));
-        position = position + *length;
+        position += *length;
     }
     let total_length = position - 1;
 

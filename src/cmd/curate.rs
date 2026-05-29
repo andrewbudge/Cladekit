@@ -36,8 +36,9 @@ pub fn run(args: CurateArgs) {
     let total_files = args.input.len();
 
     for input_path in &args.input {
-        let (sequences, _) = parse_fasta(input_path, true)
-            .expect("Could not read alignment (file not found or sequences are not the same length)");
+        let (sequences, _) = parse_fasta(input_path, true).expect(
+            "Could not read alignment (file not found or sequences are not the same length)",
+        );
 
         let seqs: Vec<(String, Vec<u8>)> = sequences
             .into_iter()
@@ -91,7 +92,10 @@ pub fn run(args: CurateArgs) {
 
         let kept = kept_cols.len();
         let path = Path::new(input_path);
-        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("output");
         let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("fasta");
 
         if let Some(ref out_dir) = args.output {
@@ -106,7 +110,13 @@ pub fn run(args: CurateArgs) {
                 writeln!(writer, "{}", trimmed).unwrap();
             }
 
-            eprintln!("{}: {} → {} sites ({} removed)", stem, aln_len, kept, aln_len - kept);
+            eprintln!(
+                "{}: {} → {} sites ({} removed)",
+                stem,
+                aln_len,
+                kept,
+                aln_len - kept
+            );
         } else {
             for (header, seq) in &seqs {
                 let trimmed: String = kept_cols.iter().map(|&col| seq[col] as char).collect();
