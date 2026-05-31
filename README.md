@@ -32,13 +32,13 @@ Extract headers from FASTA files.
 
 ```bash
 $ cladekit getheaders testdata/test_good.fasta
-Sequence1
-Sequence2
-Sequence1
+Cat
+Dog
+Cat
 
 $ cladekit getheaders -u testdata/test_good.fasta
-Sequence1
-Sequence2
+Cat
+Dog
 ```
 ---
 ### concat (liger)
@@ -97,8 +97,8 @@ BEGIN DATA;
   FORMAT DATATYPE=DNA MISSING=N GAP=-;
   MATRIX
   Mus_musculus    ATCGATCG
-  Rattus_rattus   ATCGNNNN
-  Xenopus_laevis  NNNNATCG
+  Rattus_rattus    ATCGNNNN
+  Xenopus_laevis    NNNNATCG
 ;
 END;
 BEGIN SETS;
@@ -273,18 +273,17 @@ Total taxa: 8
 Kept taxa: 6
 Dropped taxa: 2
 
-# drop taxa present in fewer than 3 loci (requires coverage TSV from cladekit coverage)
-$ cladekit coverage -t prov.tsv > coverage.tsv
-$ cladekit filter supermatrix.fasta --min-loci 3 -l coverage.tsv > filtered.fasta
+# drop taxa present in fewer than 3 loci (requires the provenance TSV from concat -l)
+$ cladekit filter supermatrix.fasta --min-loci 3 -l prov.tsv > filtered.fasta
 
 # both filters at once
-$ cladekit filter supermatrix.fasta --max-missing 0.5 --min-loci 3 -l coverage.tsv > filtered.fasta
+$ cladekit filter supermatrix.fasta --max-missing 0.5 --min-loci 3 -l prov.tsv > filtered.fasta
 ```
 
 **Flags:**
-- `--max-missing` — maximum allowed missingness fraction per taxon (0.0–1.0)
-- `--min-loci` — minimum number of loci a taxon must be present in
-- `-l, --log` — coverage TSV from `cladekit coverage` (required with `--min-loci`)
+- `-m, --max-missing` — maximum allowed missingness fraction per taxon (0.0–1.0)
+- `-n, --min-loci` — minimum number of loci a taxon must be present in
+- `-l, --log` — provenance TSV from `cladekit concat -l` (required with `--min-loci`)
 ---
 ### curate
 
