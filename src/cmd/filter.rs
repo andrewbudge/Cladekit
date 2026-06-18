@@ -66,12 +66,11 @@ pub fn run(args: FilterArgs) {
             }
         }
 
-        if let Some(min_loci) = args.min_loci {
-            if let Some(&count) = loci_counts.get(header) {
-                if count < min_loci {
-                    keep = false;
-                }
-            }
+        if let Some(min_loci) = args.min_loci
+            && let Some(&count) = loci_counts.get(header)
+            && count < min_loci
+        {
+            keep = false;
         }
 
         if keep {
