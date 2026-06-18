@@ -32,7 +32,7 @@ pub fn run(args: FilterArgs) {
         let reader = BufReader::new(file);
         let mut counts = HashMap::new();
         for line in reader.lines().skip(1) {
-            let line = line.unwrap();
+            let line = line.expect("Failed to read provenance TSV");
             let fields: Vec<&str> = line.split('\t').collect();
             if fields.len() < 2 {
                 continue;

@@ -22,6 +22,30 @@ To update to the latest version:
 cargo install --force --git https://github.com/andrewbudge/cladekit
 ```
 
+## External Dependencies
+
+Most cladekit subcommands are fully self-contained. The `extract` and `align` subcommands orchestrate external tools and require them to be in your PATH.
+
+| Subcommand | Requires |
+|---|---|
+| `extract` | [MMseqs2](https://github.com/soedinglab/MMseqs2) |
+| `align` | [MAFFT](https://mafft.cbrc.jp/alignment/software/) or [MUSCLE](https://drive5.com/muscle/) |
+
+If you don't have these installed, the easiest path is conda:
+
+```bash
+conda env create -f environment.yml
+conda activate cladekit-tools
+```
+
+Or install individually:
+
+```bash
+conda install -c bioconda mmseqs2 mafft muscle
+```
+
+All other subcommands (`getheaders`, `concat`, `stats`, `coverage`, `convert`, `filter`, `curate`) have no external dependencies.
+
 ## Subcommands
 ---
 ### getheaders (ghd)
@@ -235,7 +259,7 @@ COX1.fasta  ND2.fasta  12S.fasta
 ---
 ### align (aln)
 
-Batch align multiple FASTA files using an external alignment program. Runs the aligner on each input file and writes output to a directory with a consistent naming convention.
+Batch align multiple FASTA files using MAFFT or MUSCLE. Runs the aligner on each input file and writes output to a directory with a consistent naming convention. Aligner stderr is captured to `align.log` in the output directory.
 
 **Example:**
 
@@ -247,18 +271,22 @@ Aligning 12S...done
 Done. Aligned 3 files.
 ```
 
-Pass custom flags to the aligner after `--`:
+Pass custom flags to the aligner after `--` (replaces the default flag):
 
 ```bash
+# mafft — replace --auto
 $ cladekit align -p mafft -i genes/*.fasta -e _aln -o aligned/ -- --thread 4 --maxiterate 1000
+
+# muscle — replace -align with -super5 for large datasets
+$ cladekit align -p muscle -i genes/*.fasta -e _aln -o aligned/ -- -super5
 ```
 
 **Flags:**
-- `-p, --program` — alignment program name or path (e.g., `mafft`, `/usr/local/bin/muscle`)
+- `-p, --program` — alignment program: `mafft` or `muscle` (name or full path)
 - `-i, --input` — input unaligned FASTA files (glob or list)
 - `-e, --extension` — suffix to append to output filenames (default: `_aln`)
 - `-o, --output` — output directory for aligned files
-- `--` — everything after `--` is passed through to the aligner verbatim
+- `--` — extra flags passed verbatim to the aligner; replaces the default (`--auto` for mafft, `-align` for muscle)
 ---
 ### filter
 
@@ -289,12 +317,12 @@ $ cladekit filter supermatrix.fasta --max-missing 0.5 --min-loci 3 -l prov.tsv >
 
 Trim alignment columns by parsimony-informativeness and gappiness. A native Rust port of [ClipKIT](https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.3001007) (Steenwyk et al. 2020). Accepts multiple files and a glob. Output goes to a directory or stdout, summary to stderr.
 
-Compose keep conditions with `-k`: `p` = parsimony-informative, `c` = constant, `g` = gappiness filter. Combine letters for mixed modes.
+Compose keep conditions with `-k` by combining letters: `p` = parsimony-informative, `c` = constant, `s` = smart-gap (auto-threshold), `g` = gappy (fixed threshold).
 
 **Example:**
 
 ```bash
-# single file to stdout
+# single file to stdout (smart-gap + parsimony filter by default)
 $ cladekit curate alignment.fasta > trimmed.fasta
 Sites in:      10000
 Sites kept:    4321
@@ -307,25 +335,30 @@ ND2: 6000 → 2874 sites (3126 removed)
 12S: 4000 → 1950 sites (2050 removed)
 Done. Curated 3 files.
 
-# custom extension and stricter gap threshold
-$ cladekit curate aligned/*.fasta -e _trim --gap-threshold 0.5 -o curated/
+# fixed gap threshold instead of smart-gap
+$ cladekit curate aligned/*.fasta -k pg --gap-threshold 0.5 -o curated/
 ```
 
 **Flags:**
-- `-k, --keep` — column properties to keep: `p` (parsimony-informative), `c` (constant), `g` (gappiness filter). Combine letters: `p`, `pc`, `pg` (default), `pcg`, `g`
-- `--gap-threshold` — maximum allowed gappiness per column (0.0–1.0), used when `g` is in `--keep` (default: 0.9)
+- `-k, --keep` — column properties to keep (combine letters); default `ps`
+- `--gap-threshold` — max gappiness per column (0.0–1.0), used when `g` is in `--keep` (default: 0.9)
 - `-e, --extension` — suffix to append to output filenames (default: `_curated`)
 - `-o, --output` — output directory for trimmed files (if omitted, writes to stdout)
 
 **Mode reference:**
 
-| Flag | ClipKIT equivalent |
-|---|---|
-| `-k p` | `kpi` |
-| `-k pc` | `kpic` |
-| `-k g` | `gappy` |
-| `-k pg` | `kpi-gappy` (default) |
-| `-k pcg` | `kpic-gappy` |
+| Flag | Description | ClipKIT equivalent |
+|---|---|---|
+| `-k ps` | parsimony-informative + smart-gap filter | `kpi-smart-gap` (default) |
+| `-k pcs` | parsimony-informative + constant + smart-gap filter | `kpic-smart-gap` |
+| `-k pg` | parsimony-informative + fixed gap filter | `kpi-gappy` |
+| `-k pcg` | parsimony-informative + constant + fixed gap filter | `kpic-gappy` |
+| `-k p` | parsimony-informative only | `kpi` |
+| `-k pc` | parsimony-informative + constant | `kpic` |
+| `-k s` | smart-gap filter only | `smart-gap` |
+| `-k g` | fixed gap filter only | `gappy` |
+
+Smart-gap (`s`) automatically determines the gap threshold from the distribution of per-site gappiness values, rather than requiring a fixed cutoff. This is the primary algorithm from ClipKIT and generally produces better results than a hardcoded threshold.
 
 ---
 ## Planned Subcommands

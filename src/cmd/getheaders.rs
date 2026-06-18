@@ -5,10 +5,10 @@ use std::io::{BufRead, BufReader};
 
 #[derive(Args)]
 pub struct GetheadersArgs {
-    /// input FASTA files — accepts multiple files or globs; reads stdin if none given
+    /// Input FASTA files (accepts multiple files and globs); reads stdin if none given
     pub input: Vec<String>,
 
-    /// print only unique headers
+    /// Print only unique headers (deduplicate)
     #[arg(short, long)]
     pub unique: bool,
 }

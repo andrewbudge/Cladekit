@@ -45,8 +45,11 @@ fn collect_targets(targets: &[String]) -> Vec<String> {
     for target in targets {
         let path = Path::new(target);
         if path.is_dir() {
-            for entry in path.read_dir().unwrap() {
-                let entry = entry.unwrap();
+            for entry in path.read_dir().unwrap_or_else(|e| {
+                eprintln!("Error: could not read directory '{}': {}", target, e);
+                std::process::exit(1);
+            }) {
+                let entry = entry.expect("Failed to read directory entry");
                 let p = entry.path();
                 if p.extension()
                     .is_some_and(|e| e == "fasta" || e == "fa" || e == "fna" || e == "fas")
