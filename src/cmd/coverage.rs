@@ -5,29 +5,35 @@ use std::io::{BufRead, BufReader};
 
 #[derive(Args)]
 pub struct CoverageArgs {
-    /// Provenance TSV file from concat
+    /// Provenance TSV from 'concat -l'
     pub tsv: String,
 
-    /// Print Coverage by Loci
+    /// Show per-locus coverage (how many taxa each locus has)
     #[arg(short = 'l', long = "loci")]
     pub loci_cov: bool,
 
-    /// Print Coverage by Taxa
+    /// Show per-taxon coverage (how many loci each taxon has)
     #[arg(short = 't', long = "taxa")]
     pub taxa_cov: bool,
 
-    /// Print output in more human readable way
+    /// Column-aligned output for readability
     #[arg(short = 'p', long = "pretty")]
     pub pretty: bool,
 }
 
 pub fn run(args: CoverageArgs) {
-    let file = File::open(&args.tsv).expect("Failed to open TSV");
+    let file = File::open(&args.tsv).unwrap_or_else(|e| {
+        eprintln!("Error: could not open '{}': {}", args.tsv, e);
+        std::process::exit(1);
+    });
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
     let header = lines
         .next()
-        .expect("empty file")
+        .unwrap_or_else(|| {
+            eprintln!("Error: '{}' is empty", args.tsv);
+            std::process::exit(1);
+        })
         .expect("Failed to read header");
     let total_loci = header.split('\t').count() - 1;
 

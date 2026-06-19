@@ -1,11 +1,38 @@
 [package]
 name = "cladekit"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 
-clap = {version = "4", features = ["derive"]}
+# --- Lean file tools + shared CLI ---
+clap = { version = "4", features = ["derive", "env"] }
 libc = "0.2.183"
+
+# --- Acquisition layer (query, fetch, extract, clean, run) ---
+# Async runtime + HTTP for talking to NCBI E-utilities.
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"] }
+
+# NCBI rate limiting (3 req/s without an API key, 10 with one).
+governor = "0.6"
+
+# query_results.json and the JSONL log are real structured state, not simple TSV.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling + structured logging for the pipeline commands.
+anyhow = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Download progress + atomic temp-file writes.
+indicatif = "0.17"
+tempfile = "3"
+which = "6"
+
+# Parallelism (also slated for scrub later).
+rayon = "1"

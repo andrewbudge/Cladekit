@@ -2,7 +2,9 @@
   <img src="docs/mockup_logos/cladekit-slickrock-horizontal-dark.svg" width = "600">
 </div>
 
-Cladekit is a lightweight, composable CLI phylogenetics toolkit. A single binary, Cladekit provides many subcommands that replace common chains of bash commands or a collection of individual programs in phylogenetic pipelines. Examples include header extraction, concatenation, and alignment quality control.
+Cladekit is a lightweight, composable CLI phylogenetics toolkit. A single binary, Cladekit provides many subcommands that replace common chains of bash commands or a collection of individual programs in phylogenetic pipelines. Examples include NCBI sequence acquisition, homology-based gene extraction, concatenation, and alignment quality control.
+
+Cladekit has two layers in one binary: lean, self-contained file tools (`getheaders`, `concat`, `stats`, `coverage`, `convert`, `filter`, `curate`) and an acquisition layer (`query`, `fetch`, `extract`, `clean`) that pulls and curates sequences from NCBI. A broken external tool or network never affects the self-contained subcommands.
 
 **Note:** Cladekit is under active development. Subcommands may change or be added as the project matures.
 
@@ -21,6 +23,32 @@ To update to the latest version:
 ```bash
 cargo install --force --git https://github.com/andrewbudge/cladekit
 ```
+
+## External Dependencies
+
+Most cladekit subcommands are fully self-contained. The `extract` and `align` subcommands orchestrate external tools and require them to be in your PATH.
+
+| Subcommand | Requires |
+|---|---|
+| `extract` | [MMseqs2](https://github.com/soedinglab/MMseqs2) |
+| `align` | [MAFFT](https://mafft.cbrc.jp/alignment/software/) or [MUSCLE](https://drive5.com/muscle/) |
+
+If you don't have these installed, the easiest path is conda:
+
+```bash
+conda env create -f environment.yml
+conda activate cladekit-tools
+```
+
+Or install individually:
+
+```bash
+conda install -c bioconda mmseqs2 mafft muscle
+```
+
+The `query` and `fetch` subcommands need an internet connection and a valid email address (required by NCBI's Terms of Service for automated E-utilities access), but no external binary.
+
+All other subcommands (`getheaders`, `concat`, `stats`, `coverage`, `convert`, `filter`, `curate`, `clean`) have no external dependencies.
 
 ## Subcommands
 ---
@@ -202,40 +230,115 @@ Taxon_C    ATCGNNNN
 **Flags:**
 - `-o, --output_format` — output format: `f` (fasta), `n` (nexus), `rp` (relaxed phylip), `sp` (strict phylip)
 ---
+### query
+
+Search NCBI's `nuccore` database for one or more taxa and write a `query_results.json` manifest — the metadata spine that `fetch` and `clean` read. No sequences are downloaded at this stage; this only collects accessions and their TaxID/name/length. Each TaxID is expanded to its full subtree (`txidNNN[Organism:exp]`), excluding environmental samples.
+
+Requires an internet connection and an email address (NCBI Terms of Service).
+
+**Example:**
+
+```bash
+$ cladekit query --ingroup 89829 --outgroup 241031 309676 -o run/ --email you@example.org
+querying nuccore for txid89829[Organism:exp]
+Leptophlebiidae (89829): 3437 records found; retrieving metadata...
+...
+query complete
+  total accessions: 3586
+  written to:       run/query_results.json
+```
+
+**Flags:**
+- `--ingroup` — one or more ingroup TaxIDs (required)
+- `--outgroup` — one or more outgroup TaxIDs
+- `-o, --out` — output directory (writes `query_results.json`)
+- `--email` — email address required by NCBI ToS (required)
+- `--api-key` — NCBI API key (optional; raises the rate limit from 3 to 10 req/s)
+---
+### fetch
+
+Download the sequences for a `query_results.json` manifest, writing raw NCBI FASTA shards to `<out>/raw/`. The download is resumable — a manifest tracks completed shards, so an interrupted run picks up where it left off. Headers are written verbatim; rewriting them is `clean`'s job.
+
+```bash
+$ cladekit fetch -q run/query_results.json -o run/ --email you@example.org --yes
+preflight ready to download  records=3586  chunks=8  est_mb=2.4
+shard written  chunk=0  records=500
+...
+fetch complete  records=3586  shard_dir=run/raw
+```
+
+**Flags:**
+- `-q, --query` — path to `query_results.json` (from `query`)
+- `-o, --out` — output directory (shards go to `<out>/raw/`)
+- `--min-length` / `--max-length` — drop records outside a length range before downloading
+- `--email` — email address required by NCBI ToS (required)
+- `--api-key` — NCBI API key (optional)
+- `--yes` — skip the download-size confirmation prompt (for non-interactive use)
+---
 ### extract
 
-Extract gene regions from target organism sequences using homology search. Takes a reference FASTA with labeled gene sequences and one or more target FASTAs (or a directory), runs MMseqs2 `easy-search`, and writes one output FASTA per gene containing the extracted region from each organism that had a hit.
+Extract gene regions from target organism sequences using homology search. Takes reference gene sequences and one or more target FASTAs (or a directory), runs MMseqs2 `easy-search`, and writes one output FASTA per gene containing the extracted region from each organism that had a hit. The extracted hit region is cut at the MMseqs2 coordinates; the original target header is preserved so downstream tools (`clean`) can recover the accession.
+
+References come in two forms (one is required):
+- `-r, --reference` — a single FASTA where each record header is the gene name (`>COX1`, `>ND2`). Convenient for ad-hoc use.
+- `--refs` — one FASTA per gene, where the filename stem is the gene name (`COI.fasta` → COI). Each file may hold several sequences to cover divergence across taxa. This is the pipeline form.
 
 Requires [MMseqs2](https://github.com/soedinglab/MMseqs2) installed and in your PATH.
 
 **Example:**
 
 ```bash
-# reference.fasta has labeled genes: >COX1, >ND2, >12S
-# targets/ contains one FASTA per organism
+# refs/ has one file per gene: COI.fasta, 16S.fasta, 28S.fasta, ...
+# run/raw/ contains the FASTA shards written by fetch
 
-$ cladekit extract -r reference.fasta -t targets/ -o genes/
-Pooling 12 target files...
-Running MMseqs2 easy-search...
+$ cladekit extract --refs refs/*.fasta -t run/raw/ -o run/genes/
+Pooled 19 reference sequence(s).
+Pooling 8 target files...
 Parsing results...
-Done. Extracted 3 gene(s) from 34 hits.
+Done. Extracted 7 gene(s) from 3069 hits.
 
-$ ls genes/
-COX1.fasta  ND2.fasta  12S.fasta
+$ ls run/genes/
+12S.fasta  16S.fasta  18S.fasta  28S.fasta  COI.fasta  cytb.fasta  H3.fasta
 ```
 
 **Flags:**
-- `-r, --reference` — reference FASTA with labeled gene sequences (e.g., `>COX1`, `>ND2`)
+- `-r, --reference` — single reference FASTA, gene name = each record header (`>COX1`)
+- `--refs` — per-gene reference FASTAs, gene name = filename stem (`COI.fasta` → COI)
 - `-t, --targets` — target organism FASTA files or a directory containing them
 - `-o, --output` — output directory for per-gene FASTAs
+- `--min-identity` — minimum MMseqs2 sequence identity to keep a hit, 0.0–1.0 (default: 0.7); the sole quality gate, so choose references that cover your taxa
 - `-s, --sensitivity` — MMseqs2 sensitivity, 1.0 (fast) to 7.5 (max); default 5.7
-- `--min-coverage` — minimum fraction of the reference gene that must be covered to keep a hit (default: 0.5)
 - `--flank` — extra bases to grab on either side of each hit (default: 0)
 - `--keep-intermediates` — keep the temp directory with pooled targets and raw MMseqs2 output
 ---
+### clean
+
+Join `extract`'s per-gene output back to `query_results.json`, rewrite headers to `TaxID|Name|Accession|Gene`, and deduplicate to one sequence per taxon per gene. This recovers the TaxID and clean taxon name that homology search alone doesn't carry, and collapses the many accessions NCBI holds per taxon down to a single best representative per gene.
+
+Dedup keeps the longest sequence per TaxID, breaking ties by extract identity. Records whose accession isn't found in `query_results.json` are dropped and reported (broken provenance is useless to `concat`).
+
+```bash
+$ cladekit clean --genes-dir run/genes/ -q run/query_results.json -o run/clean/
+Done. Wrote 591 cleaned sequence(s) across 7 gene file(s); dropped 2478 duplicate(s).
+```
+
+Use `--prefer` to favour particular records during dedup — for example your own museum vouchers — even when they aren't the longest. A record is preferred if the substring appears in its extract header or its GenBank title:
+
+```bash
+$ cladekit clean --genes-dir run/genes/ -q run/query_results.json -o run/clean/ --prefer BYU
+Done. Wrote 591 cleaned sequence(s) across 7 gene file(s); dropped 2478 duplicate(s).
+  11 kept record(s) matched --prefer ["BYU"].
+```
+
+**Flags:**
+- `--genes-dir` — directory of per-gene FASTAs from `extract`
+- `-q, --query` — `query_results.json` (the accession → TaxID/name table)
+- `-o, --out` — output directory
+- `--prefer` — prefer records whose extract header or GenBank title contains this substring during dedup; repeatable, and overrides the longest-sequence rule
+---
 ### align (aln)
 
-Batch align multiple FASTA files using an external alignment program. Runs the aligner on each input file and writes output to a directory with a consistent naming convention.
+Batch align multiple FASTA files using MAFFT or MUSCLE. Runs the aligner on each input file and writes output to a directory with a consistent naming convention. Aligner stderr is captured to `align.log` in the output directory.
 
 **Example:**
 
@@ -247,18 +350,22 @@ Aligning 12S...done
 Done. Aligned 3 files.
 ```
 
-Pass custom flags to the aligner after `--`:
+Pass custom flags to the aligner after `--` (replaces the default flag):
 
 ```bash
+# mafft — replace --auto
 $ cladekit align -p mafft -i genes/*.fasta -e _aln -o aligned/ -- --thread 4 --maxiterate 1000
+
+# muscle — replace -align with -super5 for large datasets
+$ cladekit align -p muscle -i genes/*.fasta -e _aln -o aligned/ -- -super5
 ```
 
 **Flags:**
-- `-p, --program` — alignment program name or path (e.g., `mafft`, `/usr/local/bin/muscle`)
+- `-p, --program` — alignment program: `mafft` or `muscle` (name or full path)
 - `-i, --input` — input unaligned FASTA files (glob or list)
 - `-e, --extension` — suffix to append to output filenames (default: `_aln`)
 - `-o, --output` — output directory for aligned files
-- `--` — everything after `--` is passed through to the aligner verbatim
+- `--` — extra flags passed verbatim to the aligner; replaces the default (`--auto` for mafft, `-align` for muscle)
 ---
 ### filter
 
@@ -289,12 +396,12 @@ $ cladekit filter supermatrix.fasta --max-missing 0.5 --min-loci 3 -l prov.tsv >
 
 Trim alignment columns by parsimony-informativeness and gappiness. A native Rust port of [ClipKIT](https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.3001007) (Steenwyk et al. 2020). Accepts multiple files and a glob. Output goes to a directory or stdout, summary to stderr.
 
-Compose keep conditions with `-k`: `p` = parsimony-informative, `c` = constant, `g` = gappiness filter. Combine letters for mixed modes.
+Compose keep conditions with `-k` by combining letters: `p` = parsimony-informative, `c` = constant, `s` = smart-gap (auto-threshold), `g` = gappy (fixed threshold).
 
 **Example:**
 
 ```bash
-# single file to stdout
+# single file to stdout (smart-gap + parsimony filter by default)
 $ cladekit curate alignment.fasta > trimmed.fasta
 Sites in:      10000
 Sites kept:    4321
@@ -307,25 +414,50 @@ ND2: 6000 → 2874 sites (3126 removed)
 12S: 4000 → 1950 sites (2050 removed)
 Done. Curated 3 files.
 
-# custom extension and stricter gap threshold
-$ cladekit curate aligned/*.fasta -e _trim --gap-threshold 0.5 -o curated/
+# fixed gap threshold instead of smart-gap
+$ cladekit curate aligned/*.fasta -k pg --gap-threshold 0.5 -o curated/
 ```
 
 **Flags:**
-- `-k, --keep` — column properties to keep: `p` (parsimony-informative), `c` (constant), `g` (gappiness filter). Combine letters: `p`, `pc`, `pg` (default), `pcg`, `g`
-- `--gap-threshold` — maximum allowed gappiness per column (0.0–1.0), used when `g` is in `--keep` (default: 0.9)
+- `-k, --keep` — column properties to keep (combine letters); default `ps`
+- `--gap-threshold` — max gappiness per column (0.0–1.0), used when `g` is in `--keep` (default: 0.9)
 - `-e, --extension` — suffix to append to output filenames (default: `_curated`)
 - `-o, --output` — output directory for trimmed files (if omitted, writes to stdout)
 
 **Mode reference:**
 
-| Flag | ClipKIT equivalent |
-|---|---|
-| `-k p` | `kpi` |
-| `-k pc` | `kpic` |
-| `-k g` | `gappy` |
-| `-k pg` | `kpi-gappy` (default) |
-| `-k pcg` | `kpic-gappy` |
+| Flag | Description | ClipKIT equivalent |
+|---|---|---|
+| `-k ps` | parsimony-informative + smart-gap filter | `kpi-smart-gap` (default) |
+| `-k pcs` | parsimony-informative + constant + smart-gap filter | `kpic-smart-gap` |
+| `-k pg` | parsimony-informative + fixed gap filter | `kpi-gappy` |
+| `-k pcg` | parsimony-informative + constant + fixed gap filter | `kpic-gappy` |
+| `-k p` | parsimony-informative only | `kpi` |
+| `-k pc` | parsimony-informative + constant | `kpic` |
+| `-k s` | smart-gap filter only | `smart-gap` |
+| `-k g` | fixed gap filter only | `gappy` |
+
+Smart-gap (`s`) automatically determines the gap threshold from the distribution of per-site gappiness values, rather than requiring a fixed cutoff. This is the primary algorithm from ClipKIT and generally produces better results than a hardcoded threshold.
+
+---
+## Pipeline example
+
+From taxon IDs to a supermatrix. The acquisition layer (`query → fetch → extract → clean`) turns a list of TaxIDs into deduplicated, provenance-labeled per-gene FASTAs; the self-contained tools (`align → curate → concat`) turn those into a supermatrix.
+
+```bash
+# 1. Acquire — TaxIDs in, one curated FASTA per gene out
+cladekit query --ingroup 89829 --outgroup 241031 309676 -o run/ --email you@example.org
+cladekit fetch   -q run/query_results.json -o run/ --email you@example.org --yes
+cladekit extract --refs refs/*.fasta -t run/raw/ -o run/genes/
+cladekit clean   --genes-dir run/genes/ -q run/query_results.json -o run/clean/ --prefer BYU
+
+# 2. Build — align, trim, and concatenate into a supermatrix
+cladekit align  -p mafft -i run/clean/*.fasta -e _aln -o run/aligned/
+cladekit curate run/aligned/*.fasta -o run/curated/
+cladekit concat run/curated/*.fasta > supermatrix.fasta
+```
+
+`refs/` holds one reference FASTA per gene (e.g. `COI.fasta`, `16S.fasta`); each may contain several sequences spanning your taxa to catch divergent hits.
 
 ---
 ## Planned Subcommands

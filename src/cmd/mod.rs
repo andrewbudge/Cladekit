@@ -1,9 +1,12 @@
 pub mod align;
+pub mod clean;
 pub mod concat;
 pub mod convert;
 pub mod coverage;
 pub mod curate;
 pub mod extract;
+pub mod fetch;
 pub mod filter;
 pub mod getheaders;
+pub mod query;
 pub mod stats;

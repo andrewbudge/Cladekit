@@ -52,15 +52,14 @@ pub fn parse_fasta(
     if !current_header.is_empty() {
         current_seq = current_seq.to_uppercase();
         // None means this is the only sequence — nothing to compare against
-        if validate_equal {
-            if let Some(len) = expected_length {
-                if current_seq.len() != len {
-                    return Err(format!(
-                        "Error: Sequence length mismatch in {} : {}",
-                        filename, current_header
-                    ));
-                }
-            }
+        if validate_equal
+            && let Some(len) = expected_length
+            && current_seq.len() != len
+        {
+            return Err(format!(
+                "Error: Sequence length mismatch in {} : {}",
+                filename, current_header
+            ));
         }
         sequences.push((current_header, current_seq));
     }

@@ -5,14 +5,14 @@ use std::path::Path;
 
 #[derive(Args)]
 pub struct StatsArgs {
-    /// FASTA alignment files
+    /// FASTA files to summarize (accepts multiple files and globs)
     pub files: Vec<String>,
 
-    /// Sequence specific statistics
+    /// Per-sequence statistics (header, length, GC%, missingness)
     #[arg(short = 'd', long = "detailed")]
     pub detailed: bool,
 
-    /// Print output in more human readable way
+    /// Column-aligned output for readability
     #[arg(short = 'p', long = "pretty")]
     pub pretty: bool,
 }
@@ -91,7 +91,10 @@ pub fn run(args: StatsArgs) {
             "missing_pct".into(),
         ]);
         for file in &args.files {
-            let (sequences, _) = parse_fasta(file, false).expect("Failed to parse fasta file");
+            let (sequences, _) = parse_fasta(file, false).unwrap_or_else(|e| {
+                eprintln!("Error: failed to parse '{}': {}", file, e);
+                std::process::exit(1);
+            });
             let dna = is_dna(&sequences);
             let filename = Path::new(file).file_name().unwrap().to_str().unwrap();
 
@@ -129,7 +132,10 @@ pub fn run(args: StatsArgs) {
             "informative_pct".into(),
         ]);
         for file in &args.files {
-            let (sequences, length) = parse_fasta(file, false).expect("Failed to parse fasta file");
+            let (sequences, length) = parse_fasta(file, false).unwrap_or_else(|e| {
+                eprintln!("Error: failed to parse '{}': {}", file, e);
+                std::process::exit(1);
+            });
             let num_sequences = sequences.len();
             let dna = is_dna(&sequences);
 

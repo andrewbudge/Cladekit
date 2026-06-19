@@ -7,14 +7,14 @@ use std::path::Path;
 
 #[derive(Args)]
 pub struct ConcatArgs {
-    /// FASTA alignment files
+    /// FASTA alignment files (accepts multiple files and globs)
     pub files: Vec<String>,
 
     /// Alias list for smart matching — output names that map to messy input headers
     #[arg(short, long)]
     pub alias: Option<String>,
 
-    /// Output format (FASTA or Nexus)
+    /// Output format: fasta (default) or nexus
     #[arg(short, long, default_value = "FASTA")]
     pub format: String,
 

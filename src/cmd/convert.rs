@@ -8,10 +8,10 @@ use clap::Args;
 
 #[derive(Args)]
 pub struct ConvertArgs {
-    /// Input file
+    /// Input sequence file (format auto-detected from contents: FASTA, NEXUS, PHYLIP)
     pub input_file: String,
 
-    /// Output format: f (fasta), n (nexus), sp (strict phylip), rp (relaxed phylip)
+    /// Output format: f (fasta), n (nexus), sp (strict phylip), rp (relaxed phylip); writes to stdout
     #[arg(short = 'o', long = "output_format")]
     pub output_format: String,
 }
