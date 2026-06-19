@@ -20,6 +20,13 @@ pub struct CleanArgs {
     /// Output directory
     #[arg(long, short = 'o')]
     pub out: PathBuf,
+
+    /// Prefer records whose extract header or GenBank title contains this
+    /// substring when deduplicating (e.g. `--prefer BYU` to favour the lab's
+    /// own vouchers). Repeatable; a match on any wins. Overrides the
+    /// longest-sequence rule.
+    #[arg(long)]
+    pub prefer: Vec<String>,
 }
 
 /// Per-record provenance recovered from an extract output header, paired with
@@ -32,7 +39,20 @@ struct CleanRecord {
     /// Extract's reported identity for this hit. Used only as the dedup
     /// tiebreaker when two records for the same TaxID are equally long.
     ident: f64,
+    /// True when a `--prefer` substring matched this record's header or
+    /// GenBank title. Outranks length in dedup so favoured vouchers always win.
+    preferred: bool,
     seq: String,
+}
+
+/// The join target for one accession: everything `clean` needs from
+/// query_results.json. `annotation` is the GenBank title, checked (alongside the
+/// extract header) for `--prefer` substrings since vouchers like "BYU:IGCEP153"
+/// often live only in the title, not the efetch defline.
+struct Taxon {
+    taxid: u64,
+    name: String,
+    annotation: String,
 }
 
 pub async fn run(args: CleanArgs) -> Result<()> {
@@ -44,10 +64,17 @@ pub async fn run(args: CleanArgs) -> Result<()> {
     let results: Vec<QueryResult> =
         serde_json::from_str(&json).with_context(|| format!("parsing {}", args.query.display()))?;
 
-    let mut join: HashMap<String, (u64, String)> = HashMap::new();
+    let mut join: HashMap<String, Taxon> = HashMap::new();
     for result in &results {
         for acc in &result.accessions {
-            join.insert(acc.accession.clone(), (acc.taxid, acc.taxon_name.clone()));
+            join.insert(
+                acc.accession.clone(),
+                Taxon {
+                    taxid: acc.taxid,
+                    name: acc.taxon_name.clone(),
+                    annotation: acc.gene_annotation.clone(),
+                },
+            );
         }
     }
 
@@ -68,6 +95,7 @@ pub async fn run(args: CleanArgs) -> Result<()> {
 
     let mut total_kept = 0usize;
     let mut total_dropped = 0usize;
+    let mut total_preferred = 0usize;
     let mut missing: Vec<String> = Vec::new();
 
     for path in &gene_files {
@@ -90,13 +118,21 @@ pub async fn run(args: CleanArgs) -> Result<()> {
             let accession = first_token(&header);
             let ident = parse_ident(&header);
             match join.get(accession) {
-                Some((taxid, name)) => joined.push(CleanRecord {
-                    taxid: *taxid,
-                    name: name.clone(),
-                    accession: accession.to_string(),
-                    ident,
-                    seq,
-                }),
+                Some(taxon) => {
+                    // A --prefer substring may sit in the extract header (the
+                    // preserved defline) or only in the GenBank title; check both.
+                    let preferred = args.prefer.iter().any(|p| {
+                        header.contains(p.as_str()) || taxon.annotation.contains(p.as_str())
+                    });
+                    joined.push(CleanRecord {
+                        taxid: taxon.taxid,
+                        name: taxon.name.clone(),
+                        accession: accession.to_string(),
+                        ident,
+                        preferred,
+                        seq,
+                    });
+                }
                 None => missing.push(accession.to_string()),
             }
         }
@@ -107,6 +143,7 @@ pub async fn run(args: CleanArgs) -> Result<()> {
         let kept = dedup_by_taxid(joined);
         total_dropped += before - kept.len();
         total_kept += kept.len();
+        total_preferred += kept.iter().filter(|r| r.preferred).count();
 
         write_gene(&args.out, &gene, kept)?;
     }
@@ -127,6 +164,12 @@ pub async fn run(args: CleanArgs) -> Result<()> {
         gene_files.len(),
         total_dropped
     );
+    if !args.prefer.is_empty() {
+        eprintln!(
+            "  {} kept record(s) matched --prefer {:?}.",
+            total_preferred, args.prefer
+        );
+    }
 
     Ok(())
 }
@@ -148,15 +191,15 @@ fn parse_ident(header: &str) -> f64 {
         .unwrap_or(0.0)
 }
 
-/// Keep one record per TaxID: longest sequence wins; ties broken by highest
-/// identity. Output is sorted by TaxID then accession for deterministic files.
+/// Keep one record per TaxID. Ranking, highest first: `--prefer` match, then
+/// sequence length, then extract identity. Output is sorted by TaxID then
+/// accession for deterministic files.
 fn dedup_by_taxid(records: Vec<CleanRecord>) -> Vec<CleanRecord> {
     let mut best: HashMap<u64, CleanRecord> = HashMap::new();
     for rec in records {
         match best.get(&rec.taxid) {
-            Some(cur)
-                if cur.seq.len() > rec.seq.len()
-                    || (cur.seq.len() == rec.seq.len() && cur.ident >= rec.ident) => {}
+            // Keep the incumbent only if it ranks at least as high as the newcomer.
+            Some(cur) if outranks(cur, &rec) => {}
             _ => {
                 best.insert(rec.taxid, rec);
             }
@@ -165,6 +208,13 @@ fn dedup_by_taxid(records: Vec<CleanRecord>) -> Vec<CleanRecord> {
     let mut kept: Vec<CleanRecord> = best.into_values().collect();
     kept.sort_by(|a, b| a.taxid.cmp(&b.taxid).then(a.accession.cmp(&b.accession)));
     kept
+}
+
+/// True if `a` should be kept over `b` for the same TaxID: prefer-match wins,
+/// then longest, then highest identity (identity only settles exact length ties).
+fn outranks(a: &CleanRecord, b: &CleanRecord) -> bool {
+    let rank = |r: &CleanRecord| (r.preferred, r.seq.len());
+    rank(a) > rank(b) || (rank(a) == rank(b) && a.ident >= b.ident)
 }
 
 /// Write the cleaned records for one gene with rewritten `TaxID|Name|Accession|Gene`

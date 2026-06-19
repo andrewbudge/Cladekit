@@ -332,7 +332,8 @@ async fn download(
 /// partial-record corruption are ever possible.
 fn write_shard(raw_dir: &Path, index: usize, body: &str) -> Result<()> {
     let mut tmp = tempfile::NamedTempFile::new_in(raw_dir).context("creating temp shard")?;
-    tmp.write_all(body.as_bytes()).context("writing temp shard")?;
+    tmp.write_all(body.as_bytes())
+        .context("writing temp shard")?;
     tmp.as_file().sync_all().context("flushing temp shard")?;
     tmp.persist(raw_dir.join(shard_name(index)))
         .map_err(|e| anyhow::anyhow!("persisting shard {index}: {e}"))?;

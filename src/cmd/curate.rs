@@ -122,7 +122,11 @@ fn smart_gap_threshold(site_gappiness: &[f64]) -> f64 {
     let slopes = &slopes[..slopes.len() / 2];
 
     if slopes.len() < 2 {
-        return if slopes.is_empty() { 1.0 } else { gaps_arr[0].0 };
+        return if slopes.is_empty() {
+            1.0
+        } else {
+            gaps_arr[0].0
+        };
     }
 
     // Return the gap value at the index where consecutive slope difference is largest.
@@ -130,7 +134,10 @@ fn smart_gap_threshold(site_gappiness: &[f64]) -> f64 {
         .windows(2)
         .enumerate()
         .max_by(|(_, a), (_, b)| {
-            (a[1] - a[0]).abs().partial_cmp(&(b[1] - b[0]).abs()).unwrap()
+            (a[1] - a[0])
+                .abs()
+                .partial_cmp(&(b[1] - b[0]).abs())
+                .unwrap()
         })
         .map(|(i, _)| i)
         .unwrap_or(0);

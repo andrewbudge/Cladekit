@@ -43,7 +43,8 @@ pub async fn run(args: QueryArgs) -> Result<()> {
     // One QueryResult per taxon, ingroup first then outgroup. Both groups are
     // queried identically; the only difference is the TaxonGroup tag, which
     // downstream stages (e.g. fetch's ingroup-wins overlap rule) rely on.
-    let mut results: Vec<QueryResult> = Vec::with_capacity(args.ingroup.len() + args.outgroup.len());
+    let mut results: Vec<QueryResult> =
+        Vec::with_capacity(args.ingroup.len() + args.outgroup.len());
     for &taxid in &args.ingroup {
         results.push(query_taxon(&client, taxid, TaxonGroup::Ingroup).await?);
     }
