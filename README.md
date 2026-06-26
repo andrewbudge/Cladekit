@@ -4,7 +4,7 @@
 
 Cladekit is a lightweight, composable CLI phylogenetics toolkit. A single binary, Cladekit provides many subcommands that replace common chains of bash commands or a collection of individual programs in phylogenetic pipelines. Examples include NCBI sequence acquisition, homology-based gene extraction, concatenation, and alignment quality control.
 
-Cladekit has two layers in one binary: lean, self-contained file tools (`getheaders`, `concat`, `stats`, `coverage`, `convert`, `filter`, `curate`) and an acquisition layer (`query`, `fetch`, `extract`, `clean`) that pulls and curates sequences from NCBI. A broken external tool or network never affects the self-contained subcommands.
+Cladekit has two layers in one binary: lean file tools (`getheaders`, `concat`, `stats`, `coverage`, `convert`, `filter`, `curate`, `align`) and an acquisition layer (`query`, `fetch`, `extract`, `clean`) that pulls and curates sequences from NCBI. A broken external tool or network never affects the self-contained subcommands.
 
 **Note:** Cladekit is under active development. Subcommands may change or be added as the project matures.
 
