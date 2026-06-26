@@ -22,6 +22,11 @@ pub struct CoverageArgs {
 }
 
 pub fn run(args: CoverageArgs) {
+    if !args.taxa_cov && !args.loci_cov {
+        eprintln!("Error: choose a coverage view: -t/--taxa or -l/--loci");
+        std::process::exit(1);
+    }
+
     let file = File::open(&args.tsv).unwrap_or_else(|e| {
         eprintln!("Error: could not open '{}': {}", args.tsv, e);
         std::process::exit(1);
