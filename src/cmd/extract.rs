@@ -48,6 +48,10 @@ pub struct ExtractArgs {
     #[arg(short, long, default_value_t = 5.7)]
     pub sensitivity: f64,
 
+    /// Cap MMseqs2 RAM (e.g. 8G); splits the search to stay under it. Default: unlimited.
+    #[arg(long)]
+    pub max_memory_limit: Option<String>,
+
     /// Keep intermediate files instead of deleting them after the search
     #[arg(long, default_value_t = false)]
     pub keep_intermediates: bool,
@@ -239,22 +243,29 @@ pub fn run(args: ExtractArgs) {
         "Running MMseqs2 easy-search (min identity {})...",
         args.min_identity
     );
-    let status = Command::new("mmseqs")
-        .args([
-            "easy-search",
-            pooled_ref_path.to_str().unwrap(),
-            pooled_path.to_str().unwrap(),
-            results_path.to_str().unwrap(),
-            mmseqs_tmp.to_str().unwrap(),
-            "--search-type",
-            "3", // nucleotide-vs-nucleotide
-            "-s",
-            &args.sensitivity.to_string(),
-            "--min-seq-id",
-            &args.min_identity.to_string(),
-            "--format-output",
-            "query,target,fident,tstart,tend",
-        ])
+    let mut cmd = Command::new("mmseqs");
+    cmd.args([
+        "easy-search",
+        pooled_ref_path.to_str().unwrap(),
+        pooled_path.to_str().unwrap(),
+        results_path.to_str().unwrap(),
+        mmseqs_tmp.to_str().unwrap(),
+        "--search-type",
+        "3", // nucleotide-vs-nucleotide
+        "-s",
+        &args.sensitivity.to_string(),
+        "--min-seq-id",
+        &args.min_identity.to_string(),
+        "--format-output",
+        "query,target,fident,tstart,tend",
+    ]);
+
+    // Only cap memory when the user asks; otherwise let MMseqs2 use what it wants.
+    if let Some(limit) = &args.max_memory_limit {
+        cmd.args(["--split-memory-limit", limit]);
+    }
+
+    let status = cmd
         .stdout(log_file)
         .stderr(log_file2)
         .status()
