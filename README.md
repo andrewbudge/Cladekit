@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/andrewbudge/phorge/main/docs/phorge-assets/phorge-mark-ember.svg" alt="phorge logo" width="140">
 
-# phorge
+# Phorge
 
 **A composable CLI toolkit for phylogenetics — from NCBI acquisition to supermatrix, in one binary.**
 
@@ -15,7 +15,7 @@
 
 Phorge is a lightweight, composable CLI phylogenetics toolkit. A single binary, Phorge provides many subcommands that replace common chains of bash commands or a collection of individual programs in phylogenetic pipelines. Examples include NCBI sequence acquisition, homology-based gene extraction, concatenation, and alignment quality control.
 
-Phorge has two layers in one binary: lean file tools (`getheaders`, `concat`, `stats`, `coverage`, `convert`, `filter`, `curate`, `align`) and an acquisition layer (`query`, `fetch`, `extract`, `clean`) that pulls and curates sequences from NCBI. A broken external tool or network never affects the self-contained subcommands.
+Phorge has two categories of subcommands in one binary: lean file manipulation tools (`getheaders`, `concat`, `stats`, `coverage`, `convert`, `filter`, `curate`, `align`) and acquisition (`query`, `fetch`, `extract`, `clean`) that pulls and curates sequences from NCBI. **A broken external tool or network never affects the self-contained subcommands. Each subcommand works independent of one another.**
 
 > **Note:** Phorge is under active development. Subcommands may change or be added as the project matures.
 
@@ -490,10 +490,15 @@ phorge concat run/curated/*.fasta > supermatrix.fasta
 - **drafttree** — quick neighbor-joining tree from an MSA for sanity-checking alignments before committing to ML/Bayesian methods
 - **view** — in-terminal alignment viewer
 - **slice** — cut out or extract sections of an alignment
+- **rogue** —  detect and remove rouge taxa from datasets using RogueNaRok
 
 ## Development Note
 
 Phorge is being built as both a real research tool and a vehicle for learning Rust. Development is assisted by Claude (Anthropic), which serves as a teaching aid and coding partner. The design, domain knowledge, and direction are the author's own.
+
+## Contribution and Bug Reporting
+
+Contributions and bug reports are welcome! Please open an issue on the [GitHub repository](https://github.com/andrewbudge/phorge) if you encounter any problems or have suggestions for improvements. Feedback is crucial for the continued development and improvement of Phorge.
 
 ## Author
 
