@@ -48,6 +48,13 @@ pub struct ExtractArgs {
     #[arg(short, long, default_value_t = 5.7)]
     pub sensitivity: f64,
 
+    /// Max targets each reference is aligned against (MMseqs2 --max-seqs). The
+    /// prefilter keeps only the top N targets per gene by k-mer score, so if you
+    /// have MORE target sequences than this, the least-similar ones silently get
+    /// no hit. Raise above your target count for large runs.
+    #[arg(long, default_value_t = 300)]
+    pub max_seqs: usize,
+
     /// Cap MMseqs2 RAM (e.g. 8G); splits the search to stay under it. Default: unlimited.
     #[arg(long)]
     pub max_memory_limit: Option<String>,
@@ -256,6 +263,8 @@ pub fn run(args: ExtractArgs) {
         &args.sensitivity.to_string(),
         "--min-seq-id",
         &args.min_identity.to_string(),
+        "--max-seqs",
+        &args.max_seqs.to_string(),
         "--format-output",
         "query,target,fident,tstart,tend",
     ]);

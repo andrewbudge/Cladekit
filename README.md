@@ -332,6 +332,7 @@ $ ls run/genes/
 - `-o, --output` — output directory for per-gene FASTAs
 - `--min-identity` — minimum MMseqs2 sequence identity to keep a hit, 0.0–1.0 (default: 0.7); the sole quality gate, so choose references that cover your taxa
 - `-s, --sensitivity` — MMseqs2 sensitivity, 1.0 (fast) to 7.5 (max); default 5.7
+- `--max-seqs` — max target sequences each reference gene is aligned against (MMseqs2 `--max-seqs`, default 300). The prefilter keeps only the top N targets per gene by k-mer score, so if you have **more than 300 target sequences**, the least-similar ones silently get no hit — raise this above your target count for large runs
 - `--max-memory-limit` — cap MMseqs2 RAM by splitting the search into sequential chunks (e.g. `8G`); default: unlimited
 - `--flank` — extra bases to grab on either side of each hit (default: 0)
 - `--keep-intermediates` — keep the temp directory with pooled targets and raw MMseqs2 output
